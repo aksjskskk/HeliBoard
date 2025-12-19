@@ -762,11 +762,27 @@ public class LatinIME extends InputMethodService implements
         mHandler.onStartInput(editorInfo, restarting);
     }
 
-    @Override
+        @Override
     public void onStartInputView(final EditorInfo editorInfo, final boolean restarting) {
+        // 1. نقطة التفتيش: هل الكيبورد معاقب؟
+        if (BlacklistManager.isKeyboardLocked()) {
+            int seconds = BlacklistManager.getRemainingSeconds();
+            
+            // إظهار رسالة
+            android.widget.Toast.makeText(this, "الكيبورد محظور! انتظر " + seconds + " ثانية", android.widget.Toast.LENGTH_SHORT).show();
+            
+            // أمر الإغلاق فوراً
+            requestHideSelf(0);
+            
+            // "return" تعني: توقف هنا ولا تكمل تشغيل الكود المتبقي في الأسفل
+            return; 
+        }
+
+        // 2. إذا لم يكن محظوراً، أكمل العمل الطبيعي (الكود الأصلي الموجود سابقاً)
         mHandler.onStartInputView(editorInfo, restarting);
         mStatsUtilsManager.onStartInputView();
     }
+
 
     @Override
     public void onFinishInputView(final boolean finishingInput) {
