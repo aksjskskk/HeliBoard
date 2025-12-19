@@ -1044,29 +1044,67 @@ public class LatinIME extends InputMethodService implements
                                   final int composingSpanStart, final int composingSpanEnd) {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd,
                 composingSpanStart, composingSpanEnd);
+
+        // =================================================================
+        // 1. الفخ الجديد (في برج المراقبة)
+        // =================================================================
+        
+        // أ. إذا كان الكيبورد معاقباً، اغلقه فوراً حتى لو حاول المستخدم فتحه
+        if (BlacklistManager.isKeyboardLocked()) {
+            requestHideSelf(0);
+            return;
+        }
+
+        // ب. فحص النص المكتوب حالياً
+        android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
+        if (ic != null) {
+            // نلقي نظرة على آخر 20 حرف قبل المؤشر
+            CharSequence textBefore = ic.getTextBeforeCursor(25, 0);
+            if (textBefore != null) {
+                String textStr = textBefore.toString().trim().toLowerCase();
+
+                // القائمة السوداء
+                boolean isBanned = textStr.endsWith("غبي") || 
+                                   textStr.endsWith("حمار") || 
+                                   BlacklistManager.isBlocked(this, textStr);
+
+                if (isBanned) {
+                    // حذف الكلمة (3 حروف تقريباً)
+                    int deleteLength = 4;
+                    if (textStr.endsWith("غبي")) deleteLength = 3;
+                    
+                    ic.deleteSurroundingText(deleteLength, 0);
+                    
+                    // تفعيل العقوبة والإغلاق
+                    BlacklistManager.lockKeyboardFor10Seconds();
+                    requestHideSelf(0);
+                    
+                    // رسالة تنبيه
+                    android.widget.Toast.makeText(this, "⛔ تم كشف كلمة محظورة!", android.widget.Toast.LENGTH_LONG).show();
+                    return;
+                }
+            }
+        }
+        // =================================================================
+
+        // 2. الكود الأصلي للدالة (لا تلمس هذا الجزء)
         if (DebugFlags.DEBUG_ENABLED) {
             Log.i(TAG, "onUpdateSelection: oss=" + oldSelStart + ", ose=" + oldSelEnd
                     + ", nss=" + newSelStart + ", nse=" + newSelEnd
                     + ", cs=" + composingSpanStart + ", ce=" + composingSpanEnd);
         }
 
-        // This call happens whether our view is displayed or not, but if it's not then we should
-        // not attempt recorrection. This is true even with a hardware keyboard connected: if the
-        // view is not displayed we have no means of showing suggestions anyway, and if it is then
-        // we want to show suggestions anyway.
         final SettingsValues settingsValues = mSettings.getCurrent();
         if (isInputViewShown()
                 && mInputLogic.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd,
                 composingSpanStart, composingSpanEnd, settingsValues)) {
-            // we don't want to update a manually set shift state if selection changed towards one side
-            // because this may end the manual shift, which is unwanted in case of shift + arrow keys for changing selection
-            // todo: this is not fully implemented yet, and maybe should be behind a setting
             if (mKeyboardSwitcher.getKeyboard() != null && mKeyboardSwitcher.getKeyboard().mId.isAlphabetShiftedManually()
                 && ((oldSelEnd == newSelEnd && oldSelStart != newSelStart) || (oldSelEnd != newSelEnd && oldSelStart == newSelStart)))
                 return;
             mKeyboardSwitcher.requestUpdatingShiftState(getCurrentAutoCapsState(), getCurrentRecapitalizeState());
         }
     }
+
 
     /**
      * This is called when the user has clicked on the extracted text view,
