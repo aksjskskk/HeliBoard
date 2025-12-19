@@ -1417,7 +1417,10 @@ public class LatinIME extends InputMethodService implements
 
     // This method is public for testability of LatinIME, but also in the future it should
     // completely replace #onCodeInput.
+        // هذا هو المدير العام لكل الضغطات
+    @Override
     public void onEvent(@NonNull final Event event) {
+        // 1. أولاً: دع الكيبورد يقوم عمله الطبيعي (يكتب الحرف)
         if (KeyCode.VOICE_INPUT == event.getKeyCode()) {
             mRichImm.switchToShortcutIme(this);
         }
@@ -1427,7 +1430,52 @@ public class LatinIME extends InputMethodService implements
                         mKeyboardSwitcher.getCurrentKeyboardScript(), mHandler);
         updateStateAfterInputTransaction(completeInputTransaction);
         mKeyboardSwitcher.onEvent(event, getCurrentAutoCapsState(), getCurrentRecapitalizeState());
+
+        // =================================================================
+        // 2. هنا يبدأ "الفخ" الخاص بنا (يعمل بعد كل ضغطة زر)
+        // =================================================================
+        
+        // نتأكد أن الزر هو زر كتابة عادي (وليس زر مسح أو شيفت)
+        if (event.getKeyCode() > 0) {
+            android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
+            if (ic != null) {
+                // نطلب رؤية آخر 25 حرف مكتوب
+                CharSequence textBefore = ic.getTextBeforeCursor(25, 0);
+                
+                if (textBefore != null) {
+                    // ننظف النص من المسافات الزائدة ونحوله لحروف صغيرة
+                    String textStr = textBefore.toString().trim().toLowerCase();
+
+                    // --- قائمة الممنوعات المباشرة ---
+                    // نستخدم endsWith لأنها تصيد الكلمة حتى لو كانت ملصقة بكلام قبلها
+                    boolean isBanned = textStr.endsWith("غبي") || 
+                                       textStr.endsWith("حمار") || 
+                                       BlacklistManager.isBlocked(this, textStr); // فحص القائمة المحفوظة
+
+                    if (isBanned) {
+                        // أ. تحديد طول الحذف (تقريبي 4 حروف لضمان مسح الكلمة)
+                        // يمكنك جعلها 3 إذا كنت متأكداً أن الكلمات ثلاثية فقط
+                        int lengthToDelete = 4; 
+                        if (textStr.endsWith("غبي")) lengthToDelete = 3;
+
+                        // ب. الحذف
+                        ic.deleteSurroundingText(lengthToDelete, 0);
+                        
+                        // ج. تفعيل العقوبة الزمنية
+                        BlacklistManager.lockKeyboardFor10Seconds();
+                        
+                        // د. إغلاق الكيبورد
+                        requestHideSelf(0);
+                        
+                        // هـ. رسالة للمستخدم
+                        android.widget.Toast.makeText(this, "⛔ تم الحظر لمدة 10 ثواني", android.widget.Toast.LENGTH_LONG).show();
+                    }
+                }
+            }
+        }
+        // =================================================================
     }
+
 
     public void onTextInput(final String rawText) {
         // TODO: have the keyboard pass the correct key code when we need it.
