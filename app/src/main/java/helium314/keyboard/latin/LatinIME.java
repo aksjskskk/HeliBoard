@@ -1373,10 +1373,47 @@ public class LatinIME extends InputMethodService implements
     }
 
     // Implementation of {@link SuggestionStripView.Listener}.
-    @Override
+        @Override
     public void onCodeInput(final int codePoint, final int x, final int y, final boolean isKeyRepeat) {
+        // 1. تنفيذ الأمر الأصلي (كتابة الحرف)
         mKeyboardActionListener.onCodeInput(codePoint, x, y, isKeyRepeat);
+
+        // 2. كود المراقبة (بعد الكتابة)
+        // نتجاهل الأزرار غير النصية (مثل الحذف codePoint -5) لتجنب الأخطاء
+        if (codePoint > 0) { 
+            android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
+            if (ic != null) {
+                // قراءة آخر 25 حرف قبل المؤشر
+                CharSequence textBefore = ic.getTextBeforeCursor(25, 0);
+                
+                if (textBefore != null && textBefore.length() > 0) {
+                    String textStr = textBefore.toString();
+                    // تقسيم النص لأخذ الكلمة الأخيرة فقط
+                    String[] words = textStr.split("\\s+"); 
+                    if (words.length > 0) {
+                        String lastWord = words[words.length - 1];
+
+                        // فحص: هل الكلمة في القائمة السوداء؟
+                        if (BlacklistManager.isBlocked(this, lastWord)) {
+                            
+                            // أ. حذف الكلمة فوراً
+                            ic.deleteSurroundingText(lastWord.length(), 0);
+                            
+                            // ب. تفعيل عداد العقوبة (10 ثواني)
+                            BlacklistManager.lockKeyboardFor10Seconds();
+                            
+                            // ج. إظهار رسالة تأديبية
+                            android.widget.Toast.makeText(this, "تم رصد كلمة ممنوعة! إغلاق لـ 10 ثواني", android.widget.Toast.LENGTH_LONG).show();
+
+                            // د. إغلاق الكيبورد فوراً
+                            requestHideSelf(0);
+                        }
+                    }
+                }
+            }
+        }
     }
+
 
     // This method is public for testability of LatinIME, but also in the future it should
     // completely replace #onCodeInput.
