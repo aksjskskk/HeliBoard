@@ -1418,7 +1418,7 @@ public class LatinIME extends InputMethodService implements
     // This method is public for testability of LatinIME, but also in the future it should
     // completely replace #onCodeInput.
         // هذا هو المدير العام لكل الضغطات
-    @Override
+    
     public void onEvent(@NonNull final Event event) {
         // 1. أولاً: دع الكيبورد يقوم عمله الطبيعي (يكتب الحرف)
         if (KeyCode.VOICE_INPUT == event.getKeyCode()) {
