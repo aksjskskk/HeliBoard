@@ -1038,14 +1038,17 @@ public class LatinIME extends InputMethodService implements
         mKeyboardSwitcher.deallocateMemory();
     }
 
-            @Override
+                @Override
     public void onUpdateSelection(final int oldSelStart, final int oldSelEnd,
                                   final int newSelStart, final int newSelEnd,
                                   final int composingSpanStart, final int composingSpanEnd) {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd,
                 composingSpanStart, composingSpanEnd);
 
-        // 1. نظام الحماية الذكي
+        // =================================================================
+        // 1. نظام الحماية الذكي (النسخة النووية ☢️)
+        // =================================================================
+        
         if (BlacklistManager.isKeyboardLocked()) {
             requestHideSelf(0);
             return;
@@ -1055,14 +1058,18 @@ public class LatinIME extends InputMethodService implements
 
         android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
         if (ic != null) {
-            // توسيع نطاق الفحص لكشف الحيل (50 حرف)
+            // توسيع نطاق الفحص (50 حرف)
             CharSequence textBefore = ic.getTextBeforeCursor(50, 0);
             
             if (textBefore != null) {
                 String originalText = textBefore.toString().toLowerCase();
                 
-                // تنظيف النص من الحيل (مسافات، نقاط، زخارف)
-                String cleanText = originalText.replaceAll("[\\s\\.\\-_*#]+", "");
+                // --- [التنظيف الذكي والشامل] ---
+                // المعادلة تعني: استبدل أي شيء (ليس حرفاً) أو (هو تطويل) بـ "لا شيء"
+                // [^\\p{L}] : تعني أي شيء ليس حرفاً لغوياً (تشمل الأرقام، الرموز، الإيموجي، المسافات، التشكيل)
+                // |ـ        : تعني أيضاً احذف التطويل (المد)
+                String cleanText = originalText.replaceAll("[^\\p{L}]|ـ", ""); 
+                // -----------------------------
 
                 String matchedWord = null;
                 for (String word : bannedWords) {
@@ -1083,19 +1090,17 @@ public class LatinIME extends InputMethodService implements
                         ic.deleteSurroundingText(textBefore.length(), 0);
                     }
 
-                    // تفعيل الحظر
                     BlacklistManager.lockKeyboardFor10Seconds();
                     requestHideSelf(0);
                     
-                    // رسالة التنبيه (بالاسم الكامل لتجنب مشاكل الاستيراد)
                     android.widget.Toast.makeText(this, "⛔ كشف محاولة تحايل!", android.widget.Toast.LENGTH_LONG).show();
-                    
                     return;
                 }
             }
         }
+        // =================================================================
 
-        // 2. الكود الأصلي
+        // 2. الكود الأصلي (كما هو)
         if (DebugFlags.DEBUG_ENABLED) {
             Log.i(TAG, "onUpdateSelection: oss=" + oldSelStart + ", ose=" + oldSelEnd
                     + ", nss=" + newSelStart + ", nse=" + newSelEnd
