@@ -1084,35 +1084,72 @@ public class LatinIME extends InputMethodService implements
 
                     // --- [حل مشكلة يوتيوب: الحذف بالتظليل] ---
                     
-                    // 1. إجبار التطبيق على اعتماد النص (إزالة الخط من تحته)
-                    ic.finishComposingText();
+    @Override
+    public void onUpdateSelection(final int oldSelStart, final int oldSelEnd,
+                                  final int newSelStart, final int newSelEnd,
+                                  final int composingSpanStart, final int composingSpanEnd) {
+        super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd,
+                composingSpanStart, composingSpanEnd);
 
-                    // 2. محاولة التظليل والاستبدال (أقوى طريقة للحذف)
-                    if (newSelEnd >= deleteLength) {
-                        // نظلل الكلمة المحظورة بدقة
-                        ic.setSelection(newSelEnd - deleteLength, newSelEnd);
-                        // نستبدل النص المظلل بـ "لا شيء"
+        // 1. نظام الحماية الذكي
+        if (BlacklistManager.isKeyboardLocked()) {
+            requestHideSelf(0);
+            return;
+        }
+
+        String[] bannedWords = {"غبي", "حمار", "badword", "ممنوع"}; 
+
+        android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
+        if (ic != null) {
+            // نزيد عدد الحروف التي نفحصها إلى 50 لضمان كشف الكلمة حتى لو كانت متباعدة جداً
+            // مثال: غ . . . . ب . . . ي
+            CharSequence textBefore = ic.getTextBeforeCursor(50, 0);
+            
+            if (textBefore != null) {
+                String originalText = textBefore.toString().toLowerCase();
+                
+                // --- [مرحلة التنظيف - السر هنا] ---
+                // هذا السطر يحذف المسافات، النقاط، الشرطات، والزخارف
+                // يحول "غ. ب - ي" إلى "غبي"
+                String cleanText = originalText.replaceAll("[\\s\\.\\-_*#]+", "");
+                // ----------------------------------
+
+                String matchedWord = null;
+
+                for (String word : bannedWords) {
+                    // نفحص النص النظيف
+                    if (cleanText.endsWith(word.toLowerCase())) {
+                        matchedWord = word;
+                        break; 
+                    }
+                }
+
+                if (matchedWord != null) {
+                    // --- [تعديل الحذف للحيل] ---
+                    // بما أن المستخدم تلاعب بالنص، لا نعرف الطول الحقيقي للكلمة بدقة
+                    // لذا، كعقاب إضافي، سنمسح الـ 50 حرفاً التي فحصناها بالكامل لضمان إزالة الحيلة
+                    
+                    ic.finishComposingText();
+                    
+                    // نحذف النص المشبوه كاملاً (تنظيف شامل)
+                    if (newSelEnd >= textBefore.length()) {
+                        ic.setSelection(newSelEnd - textBefore.length(), newSelEnd);
                         ic.commitText("", 1);
                     } else {
-                        // (خطة بديلة) لو فشل التظليل نستخدم الحذف العادي
-                        ic.deleteSurroundingText(deleteLength, 0);
+                        ic.deleteSurroundingText(textBefore.length(), 0);
                     }
-                    // ------------------------------------------
-                    
-                    // تفعيل العقوبة والإغلاق
+
+                    // العقاب
                     BlacklistManager.lockKeyboardFor10Seconds();
                     requestHideSelf(0);
                     
-                    // رسالة تنبيه
-                    android.widget.Toast.makeText(this, "⛔ كلمة ممنوعة!", android.widget.Toast.LENGTH_LONG).show();
-                    return; // نخرج فوراً ولا نكمل تنفيذ باقي الكود
+                    android.widget.Toast.makeText(this, "⛔ كشف محاولة تحايل!", android.widget.Toast.LENGTH_LONG).show();
+                    return;
                 }
             }
         }
-        // =================================================================
 
-
-        // 2. الكود الأصلي للدالة (لا تلمس شيئاً هنا)
+        // 2. الكود الأصلي (كما هو)
         if (DebugFlags.DEBUG_ENABLED) {
             Log.i(TAG, "onUpdateSelection: oss=" + oldSelStart + ", ose=" + oldSelEnd
                     + ", nss=" + newSelStart + ", nse=" + newSelEnd
@@ -1129,6 +1166,7 @@ public class LatinIME extends InputMethodService implements
             mKeyboardSwitcher.requestUpdatingShiftState(getCurrentAutoCapsState(), getCurrentRecapitalizeState());
         }
     }
+
 
     /**
      * This is called when the user has clicked on the extracted text view,
