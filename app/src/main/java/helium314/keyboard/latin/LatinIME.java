@@ -1110,14 +1110,34 @@ public class LatinIME extends InputMethodService implements
                 
                 // --- [مرحلة التنظيف - السر هنا] ---
                 // هذا السطر يحذف المسافات، النقاط، الشرطات، والزخارف
-                // يحول "غ. ب - ي" إلى "غبي"
+    @Override
+    public void onUpdateSelection(final int oldSelStart, final int oldSelEnd,
+                                  final int newSelStart, final int newSelEnd,
+                                  final int composingSpanStart, final int composingSpanEnd) {
+        super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd,
+                composingSpanStart, composingSpanEnd);
+
+        // =================================================================
+        // 1. كود الحظر والحماية (معدل ليعمل بدون Import)
+        // =================================================================
+        
+        if (BlacklistManager.isKeyboardLocked()) {
+            requestHideSelf(0);
+            return;
+        }
+
+        String[] bannedWords = {"غبي", "حمار", "badword", "ممنوع"}; 
+
+        android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
+        if (ic != null) {
+            CharSequence textBefore = ic.getTextBeforeCursor(50, 0);
+            
+            if (textBefore != null) {
+                String originalText = textBefore.toString().toLowerCase();
                 String cleanText = originalText.replaceAll("[\\s\\.\\-_*#]+", "");
-                // ----------------------------------
 
                 String matchedWord = null;
-
                 for (String word : bannedWords) {
-                    // نفحص النص النظيف
                     if (cleanText.endsWith(word.toLowerCase())) {
                         matchedWord = word;
                         break; 
@@ -1125,13 +1145,8 @@ public class LatinIME extends InputMethodService implements
                 }
 
                 if (matchedWord != null) {
-                    // --- [تعديل الحذف للحيل] ---
-                    // بما أن المستخدم تلاعب بالنص، لا نعرف الطول الحقيقي للكلمة بدقة
-                    // لذا، كعقاب إضافي، سنمسح الـ 50 حرفاً التي فحصناها بالكامل لضمان إزالة الحيلة
-                    
                     ic.finishComposingText();
                     
-                    // نحذف النص المشبوه كاملاً (تنظيف شامل)
                     if (newSelEnd >= textBefore.length()) {
                         ic.setSelection(newSelEnd - textBefore.length(), newSelEnd);
                         ic.commitText("", 1);
@@ -1139,17 +1154,19 @@ public class LatinIME extends InputMethodService implements
                         ic.deleteSurroundingText(textBefore.length(), 0);
                     }
 
-                    // العقاب
                     BlacklistManager.lockKeyboardFor10Seconds();
                     requestHideSelf(0);
                     
+                    // التعديل هنا: استخدمنا الاسم الكامل لتجنب الخطأ
                     android.widget.Toast.makeText(this, "⛔ كشف محاولة تحايل!", android.widget.Toast.LENGTH_LONG).show();
+                    
                     return;
                 }
             }
         }
+        // =================================================================
 
-        // 2. الكود الأصلي (كما هو)
+        // 2. الكود الأصلي (لا تلمسه)
         if (DebugFlags.DEBUG_ENABLED) {
             Log.i(TAG, "onUpdateSelection: oss=" + oldSelStart + ", ose=" + oldSelEnd
                     + ", nss=" + newSelStart + ", nse=" + newSelEnd
@@ -1166,6 +1183,7 @@ public class LatinIME extends InputMethodService implements
             mKeyboardSwitcher.requestUpdatingShiftState(getCurrentAutoCapsState(), getCurrentRecapitalizeState());
         }
     }
+
 
 
     /**
