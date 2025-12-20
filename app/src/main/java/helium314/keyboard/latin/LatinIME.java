@@ -1125,15 +1125,34 @@ public class LatinIME extends InputMethodService implements
             requestHideSelf(0);
             return;
         }
+    @Override
+    public void onUpdateSelection(final int oldSelStart, final int oldSelEnd,
+                                  final int newSelStart, final int newSelEnd,
+                                  final int composingSpanStart, final int composingSpanEnd) {
+        super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd,
+                composingSpanStart, composingSpanEnd);
+
+        // =================================================================
+        // 1. كود الحظر والحماية (النسخة النهائية)
+        // =================================================================
+        
+        // أ. الحظر الأمني
+        if (BlacklistManager.isKeyboardLocked()) {
+            requestHideSelf(0);
+            return;
+        }
 
         String[] bannedWords = {"غبي", "حمار", "badword", "ممنوع"}; 
 
         android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
         if (ic != null) {
+            // توسيع نطاق الفحص لكشف الحيل (50 حرف)
             CharSequence textBefore = ic.getTextBeforeCursor(50, 0);
             
             if (textBefore != null) {
                 String originalText = textBefore.toString().toLowerCase();
+                
+                // تنظيف النص من الحيل (مسافات، نقاط، زخارف)
                 String cleanText = originalText.replaceAll("[\\s\\.\\-_*#]+", "");
 
                 String matchedWord = null;
@@ -1147,6 +1166,7 @@ public class LatinIME extends InputMethodService implements
                 if (matchedWord != null) {
                     ic.finishComposingText();
                     
+                    // العقاب: مسح النص المشبوه بالكامل
                     if (newSelEnd >= textBefore.length()) {
                         ic.setSelection(newSelEnd - textBefore.length(), newSelEnd);
                         ic.commitText("", 1);
@@ -1154,10 +1174,11 @@ public class LatinIME extends InputMethodService implements
                         ic.deleteSurroundingText(textBefore.length(), 0);
                     }
 
+                    // تفعيل الحظر
                     BlacklistManager.lockKeyboardFor10Seconds();
                     requestHideSelf(0);
                     
-                    // التعديل هنا: استخدمنا الاسم الكامل لتجنب الخطأ
+                    // رسالة التنبيه (كاملة لتجنب مشاكل الاستيراد)
                     android.widget.Toast.makeText(this, "⛔ كشف محاولة تحايل!", android.widget.Toast.LENGTH_LONG).show();
                     
                     return;
@@ -1166,7 +1187,7 @@ public class LatinIME extends InputMethodService implements
         }
         // =================================================================
 
-        // 2. الكود الأصلي (لا تلمسه)
+        // 2. الكود الأصلي
         if (DebugFlags.DEBUG_ENABLED) {
             Log.i(TAG, "onUpdateSelection: oss=" + oldSelStart + ", ose=" + oldSelEnd
                     + ", nss=" + newSelStart + ", nse=" + newSelEnd
@@ -1183,6 +1204,7 @@ public class LatinIME extends InputMethodService implements
             mKeyboardSwitcher.requestUpdatingShiftState(getCurrentAutoCapsState(), getCurrentRecapitalizeState());
         }
     }
+
 
 
 
