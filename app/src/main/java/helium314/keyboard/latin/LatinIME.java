@@ -1038,7 +1038,7 @@ public class LatinIME extends InputMethodService implements
         mKeyboardSwitcher.deallocateMemory();
     }
 
-    @Override
+        @Override
     public void onUpdateSelection(final int oldSelStart, final int oldSelEnd,
                                   final int newSelStart, final int newSelEnd,
                                   final int composingSpanStart, final int composingSpanEnd) {
@@ -1046,48 +1046,73 @@ public class LatinIME extends InputMethodService implements
                 composingSpanStart, composingSpanEnd);
 
         // =================================================================
-        // 1. الفخ الجديد (في برج المراقبة)
+        // 1. نظام الحماية والحظر (بداية الكود المضاف)
         // =================================================================
         
-        // أ. إذا كان الكيبورد معاقباً، اغلقه فوراً حتى لو حاول المستخدم فتحه
+        // أ. إذا كان الكيبورد في وضع العقوبة، إغلاق فوري
         if (BlacklistManager.isKeyboardLocked()) {
             requestHideSelf(0);
             return;
         }
 
-        // ب. فحص النص المكتوب حالياً
+        // ب. قائمة الكلمات المحظورة (هنا نضع الكلمات ليعرف الكود طولها تلقائياً)
+        // ملاحظة: مستقبلاً سنجعل هذه القائمة تأتي من الإعدادات بدلاً من كتابتها هنا
+        String[] bannedWords = {"غبي", "حمار", "badword", "ممنوع"}; 
+
         android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
         if (ic != null) {
-            // نلقي نظرة على آخر 20 حرف قبل المؤشر
+            // فحص آخر 25 حرف قبل المؤشر
             CharSequence textBefore = ic.getTextBeforeCursor(25, 0);
+            
             if (textBefore != null) {
                 String textStr = textBefore.toString().trim().toLowerCase();
+                String matchedWord = null;
 
-                // القائمة السوداء
-                boolean isBanned = textStr.endsWith("غبي") || 
-                                   textStr.endsWith("حمار") || 
-                                   BlacklistManager.isBlocked(this, textStr);
+                // --- [السر في الديناميكية] ---
+                // هذه الحلقة تدور على الكلمات وتكتشف أوتوماتيكياً أي كلمة طابقناها
+                for (String word : bannedWords) {
+                    if (textStr.endsWith(word.toLowerCase())) {
+                        matchedWord = word;
+                        break; // وجدنا الكلمة، نخرج من الحلقة
+                    }
+                }
+                // -----------------------------
 
-                if (isBanned) {
-                    // حذف الكلمة (3 حروف تقريباً)
-                    int deleteLength = 4;
-                    if (textStr.endsWith("غبي")) deleteLength = 3;
+                if (matchedWord != null) {
+                    // حساب الطول أوتوماتيكياً
+                    int deleteLength = matchedWord.length();
+
+                    // --- [حل مشكلة يوتيوب: الحذف بالتظليل] ---
                     
-                    ic.deleteSurroundingText(deleteLength, 0);
+                    // 1. إجبار التطبيق على اعتماد النص (إزالة الخط من تحته)
+                    ic.finishComposingText();
+
+                    // 2. محاولة التظليل والاستبدال (أقوى طريقة للحذف)
+                    if (newSelEnd >= deleteLength) {
+                        // نظلل الكلمة المحظورة بدقة
+                        ic.setSelection(newSelEnd - deleteLength, newSelEnd);
+                        // نستبدل النص المظلل بـ "لا شيء"
+                        ic.commitText("", 1);
+                    } else {
+                        // (خطة بديلة) لو فشل التظليل نستخدم الحذف العادي
+                        ic.deleteSurroundingText(deleteLength, 0);
+                    }
+                    // ------------------------------------------
                     
                     // تفعيل العقوبة والإغلاق
                     BlacklistManager.lockKeyboardFor10Seconds();
                     requestHideSelf(0);
                     
                     // رسالة تنبيه
-                    android.widget.Toast.makeText(this, "⛔ تم كشف كلمة محظورة!", android.widget.Toast.LENGTH_LONG).show();
-                    return;
+                    android.widget.Toast.makeText(this, "⛔ كلمة ممنوعة!", android.widget.Toast.LENGTH_LONG).show();
+                    return; // نخرج فوراً ولا نكمل تنفيذ باقي الكود
                 }
             }
         }
         // =================================================================
 
-        // 2. الكود الأصلي للدالة (لا تلمس هذا الجزء)
+
+        // 2. الكود الأصلي للدالة (لا تلمس شيئاً هنا)
         if (DebugFlags.DEBUG_ENABLED) {
             Log.i(TAG, "onUpdateSelection: oss=" + oldSelStart + ", ose=" + oldSelEnd
                     + ", nss=" + newSelStart + ", nse=" + newSelEnd
@@ -1104,7 +1129,6 @@ public class LatinIME extends InputMethodService implements
             mKeyboardSwitcher.requestUpdatingShiftState(getCurrentAutoCapsState(), getCurrentRecapitalizeState());
         }
     }
-
 
     /**
      * This is called when the user has clicked on the extracted text view,
