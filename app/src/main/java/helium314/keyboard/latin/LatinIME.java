@@ -1038,7 +1038,7 @@ public class LatinIME extends InputMethodService implements
         mKeyboardSwitcher.deallocateMemory();
     }
 
-                @Override
+                   @Override
     public void onUpdateSelection(final int oldSelStart, final int oldSelEnd,
                                   final int newSelStart, final int newSelEnd,
                                   final int composingSpanStart, final int composingSpanEnd) {
@@ -1046,7 +1046,7 @@ public class LatinIME extends InputMethodService implements
                 composingSpanStart, composingSpanEnd);
 
         // =================================================================
-        // 1. نظام الحماية الذكي (النسخة النووية ☢️)
+        // 1. نظام الحماية الشامل (رموز + تكرار)
         // =================================================================
         
         if (BlacklistManager.isKeyboardLocked()) {
@@ -1058,22 +1058,22 @@ public class LatinIME extends InputMethodService implements
 
         android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
         if (ic != null) {
-            // توسيع نطاق الفحص (50 حرف)
             CharSequence textBefore = ic.getTextBeforeCursor(50, 0);
             
             if (textBefore != null) {
                 String originalText = textBefore.toString().toLowerCase();
                 
-                // --- [التنظيف الذكي والشامل] ---
-                // المعادلة تعني: استبدل أي شيء (ليس حرفاً) أو (هو تطويل) بـ "لا شيء"
-                // [^\\p{L}] : تعني أي شيء ليس حرفاً لغوياً (تشمل الأرقام، الرموز، الإيموجي، المسافات، التشكيل)
-                // |ـ        : تعني أيضاً احذف التطويل (المد)
+                // 1. تنظيف الرموز والزخارف (الخطوة الأولى)
                 String cleanText = originalText.replaceAll("[^\\p{L}]|ـ", ""); 
-                // -----------------------------
+
+                // 2. سحق التكرار (الخطوة الجديدة)
+                // يحول "غบบบบي" إلى "غبي"
+                String noRepeatsText = cleanText.replaceAll("(.)\\1+", "$1");
 
                 String matchedWord = null;
                 for (String word : bannedWords) {
-                    if (cleanText.endsWith(word.toLowerCase())) {
+                    // نفحص النص بعد "سحق التكرار"
+                    if (noRepeatsText.endsWith(word.toLowerCase())) {
                         matchedWord = word;
                         break; 
                     }
@@ -1082,7 +1082,7 @@ public class LatinIME extends InputMethodService implements
                 if (matchedWord != null) {
                     ic.finishComposingText();
                     
-                    // العقاب: مسح النص المشبوه بالكامل
+                    // العقاب: مسح النص الأصلي بالكامل
                     if (newSelEnd >= textBefore.length()) {
                         ic.setSelection(newSelEnd - textBefore.length(), newSelEnd);
                         ic.commitText("", 1);
@@ -1093,14 +1093,14 @@ public class LatinIME extends InputMethodService implements
                     BlacklistManager.lockKeyboardFor10Seconds();
                     requestHideSelf(0);
                     
-                    android.widget.Toast.makeText(this, "⛔ كشف محاولة تحايل!", android.widget.Toast.LENGTH_LONG).show();
+                    android.widget.Toast.makeText(this, "⛔ ممنوع التحايل بالتكرار!", android.widget.Toast.LENGTH_LONG).show();
                     return;
                 }
             }
         }
         // =================================================================
 
-        // 2. الكود الأصلي (كما هو)
+        // 2. الكود الأصلي
         if (DebugFlags.DEBUG_ENABLED) {
             Log.i(TAG, "onUpdateSelection: oss=" + oldSelStart + ", ose=" + oldSelEnd
                     + ", nss=" + newSelStart + ", nse=" + newSelEnd
@@ -1117,6 +1117,7 @@ public class LatinIME extends InputMethodService implements
             mKeyboardSwitcher.requestUpdatingShiftState(getCurrentAutoCapsState(), getCurrentRecapitalizeState());
         }
     }
+
 
     /**
      * This is called when the user has clicked on the extracted text view,
