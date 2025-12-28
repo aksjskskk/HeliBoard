@@ -1038,7 +1038,7 @@ public class LatinIME extends InputMethodService implements
         mKeyboardSwitcher.deallocateMemory();
     }
 
-                      @Override
+                        @Override
     public void onUpdateSelection(final int oldSelStart, final int oldSelEnd,
                                   final int newSelStart, final int newSelEnd,
                                   final int composingSpanStart, final int composingSpanEnd) {
@@ -1046,7 +1046,7 @@ public class LatinIME extends InputMethodService implements
                 composingSpanStart, composingSpanEnd);
 
         // =================================================================
-        // 1. 🛡️ نظام الحماية (يعتمد على BlacklistManager الذكي)
+        // 1. نظام الحماية (نسخة التجربة)
         // =================================================================
         
         // أ. إذا كان الكيبورد معاقباً، أغلقه فوراً
@@ -1057,19 +1057,18 @@ public class LatinIME extends InputMethodService implements
 
         android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
         if (ic != null) {
-            // نأخذ آخر 50 حرف (نص خام بدون تعديل)
+            // نأخذ آخر 50 حرفاً للفحص
             CharSequence textBefore = ic.getTextBeforeCursor(50, 0);
             
             if (textBefore != null) {
                 String originalText = textBefore.toString();
                 
-                // ب. نسأل المدير: هل هذا النص ممنوع؟ 
-                // (المدير سيقوم بالتنظيف، التجذير، وفحص الأرقام داخلياً)
+                // ب. نسأل المدير: هل هذا النص ممنوع؟
                 if (BlacklistManager.isBlocked(this, originalText)) {
                     
                     ic.finishComposingText();
                     
-                    // ج. العقاب: مسح النص المحظور
+                    // ج. مسح النص المحظور
                     if (newSelEnd >= originalText.length()) {
                         ic.setSelection(newSelEnd - originalText.length(), newSelEnd);
                         ic.commitText("", 1);
@@ -1077,27 +1076,20 @@ public class LatinIME extends InputMethodService implements
                         ic.deleteSurroundingText(originalText.length(), 0);
                     }
 
-                    // د. تفعيل المؤقت وفتح سجن العقاب 🚨
+                    // د. تفعيل المؤقت (10 ثواني) وإغلاق الكيبورد
                     BlacklistManager.lockKeyboardFor10Seconds();
                     requestHideSelf(0);
                     
-                    try {
-                        // محاولة فتح شاشة العقاب
-                        android.content.Intent intent = new android.content.Intent(this, PunishmentActivity.class);
-                        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
-                        startActivity(intent);
-                    } catch (Exception e) {
-                        // في حال حدث خطأ في فتح الشاشة، نظهر رسالة فقط
-                        android.widget.Toast.makeText(this, "⛔ محتوى محظور!", android.widget.Toast.LENGTH_LONG).show();
-                    }
+                    // هـ. رسالة فقط (بدون شاشة عقاب لتفادي أخطاء البناء)
+                    android.widget.Toast.makeText(this, "⛔ تم رصد كلمة محظورة! (إغلاق 10 ثواني)", android.widget.Toast.LENGTH_LONG).show();
                     
-                    return; // الخروج فوراً لمنع أي معالجة أخرى
+                    return; 
                 }
             }
         }
         // =================================================================
 
-        // 2. ⚙️ الكود الأصلي للكيبورد (لا تلمسه)
+        // 2. الكود الأصلي للكيبورد (لا تلمسه)
         if (DebugFlags.DEBUG_ENABLED) {
             Log.i(TAG, "onUpdateSelection: oss=" + oldSelStart + ", ose=" + oldSelEnd
                     + ", nss=" + newSelStart + ", nse=" + newSelEnd
