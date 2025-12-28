@@ -1038,7 +1038,7 @@ public class LatinIME extends InputMethodService implements
         mKeyboardSwitcher.deallocateMemory();
     }
 
-                   @Override
+                      @Override
     public void onUpdateSelection(final int oldSelStart, final int oldSelEnd,
                                   final int newSelStart, final int newSelEnd,
                                   final int composingSpanStart, final int composingSpanEnd) {
@@ -1046,61 +1046,58 @@ public class LatinIME extends InputMethodService implements
                 composingSpanStart, composingSpanEnd);
 
         // =================================================================
-        // 1. نظام الحماية الشامل (رموز + تكرار)
+        // 1. 🛡️ نظام الحماية (يعتمد على BlacklistManager الذكي)
         // =================================================================
         
+        // أ. إذا كان الكيبورد معاقباً، أغلقه فوراً
         if (BlacklistManager.isKeyboardLocked()) {
             requestHideSelf(0);
             return;
         }
 
-        String[] bannedWords = {"غبي", "حمار", "badword", "ممنوع"}; 
-
         android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
         if (ic != null) {
+            // نأخذ آخر 50 حرف (نص خام بدون تعديل)
             CharSequence textBefore = ic.getTextBeforeCursor(50, 0);
             
             if (textBefore != null) {
-                String originalText = textBefore.toString().toLowerCase();
+                String originalText = textBefore.toString();
                 
-                // 1. تنظيف الرموز والزخارف (الخطوة الأولى)
-                String cleanText = originalText.replaceAll("[^\\p{L}]|ـ", ""); 
-
-                // 2. سحق التكرار (الخطوة الجديدة)
-                // يحول "غบบบบي" إلى "غبي"
-                String noRepeatsText = cleanText.replaceAll("(.)\\1+", "$1");
-
-                String matchedWord = null;
-                for (String word : bannedWords) {
-                    // نفحص النص بعد "سحق التكرار"
-                    if (noRepeatsText.endsWith(word.toLowerCase())) {
-                        matchedWord = word;
-                        break; 
-                    }
-                }
-
-                if (matchedWord != null) {
+                // ب. نسأل المدير: هل هذا النص ممنوع؟ 
+                // (المدير سيقوم بالتنظيف، التجذير، وفحص الأرقام داخلياً)
+                if (BlacklistManager.isBlocked(this, originalText)) {
+                    
                     ic.finishComposingText();
                     
-                    // العقاب: مسح النص الأصلي بالكامل
-                    if (newSelEnd >= textBefore.length()) {
-                        ic.setSelection(newSelEnd - textBefore.length(), newSelEnd);
+                    // ج. العقاب: مسح النص المحظور
+                    if (newSelEnd >= originalText.length()) {
+                        ic.setSelection(newSelEnd - originalText.length(), newSelEnd);
                         ic.commitText("", 1);
                     } else {
-                        ic.deleteSurroundingText(textBefore.length(), 0);
+                        ic.deleteSurroundingText(originalText.length(), 0);
                     }
 
+                    // د. تفعيل المؤقت وفتح سجن العقاب 🚨
                     BlacklistManager.lockKeyboardFor10Seconds();
                     requestHideSelf(0);
                     
-                    android.widget.Toast.makeText(this, "⛔ ممنوع التحايل بالتكرار!", android.widget.Toast.LENGTH_LONG).show();
-                    return;
+                    try {
+                        // محاولة فتح شاشة العقاب
+                        android.content.Intent intent = new android.content.Intent(this, PunishmentActivity.class);
+                        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
+                    } catch (Exception e) {
+                        // في حال حدث خطأ في فتح الشاشة، نظهر رسالة فقط
+                        android.widget.Toast.makeText(this, "⛔ محتوى محظور!", android.widget.Toast.LENGTH_LONG).show();
+                    }
+                    
+                    return; // الخروج فوراً لمنع أي معالجة أخرى
                 }
             }
         }
         // =================================================================
 
-        // 2. الكود الأصلي
+        // 2. ⚙️ الكود الأصلي للكيبورد (لا تلمسه)
         if (DebugFlags.DEBUG_ENABLED) {
             Log.i(TAG, "onUpdateSelection: oss=" + oldSelStart + ", ose=" + oldSelEnd
                     + ", nss=" + newSelStart + ", nse=" + newSelEnd
