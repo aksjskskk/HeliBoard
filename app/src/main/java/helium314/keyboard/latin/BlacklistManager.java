@@ -11,7 +11,7 @@ import java.util.Set;
 public class BlacklistManager {
 
     // =========================================================
-    // 1. القائمة الكاملة (من ملفك النصي) 📝
+    // 1. القائمة الكاملة (تم تحديثها) 📝
     // =========================================================
     private static final List<String> BAD_WORDS = Arrays.asList(
         // --- العربية ---
@@ -22,8 +22,8 @@ public class BlacklistManager {
         "خلفيةبنت", "خلفيةامراة", "خلفيةنساء", "استمناء", "حلوك", "حلوگ", "بوس",
         "مضاجعة", "اباحي",
         // --- الإنجليزية ---
-        "xnxx", "nxxx", "xxnx", "xxx", "sex", "hotgirl", "hotwomen", "ass",
-        "naked", "horny", "sucking", "licking", "porn"
+        "xnxx", "nxxx", "xxnx", "xxx", "sex", "hotgirl", "hotwomen", "hotlady", // 🔥 تمت الإضافة هنا
+        "ass", "naked", "horny", "sucking", "licking", "porn"
     );
 
     // قائمة 18+ الخاصة
@@ -33,24 +33,22 @@ public class BlacklistManager {
     private static long unlockTimeInMillis = 0;
 
     // =========================================================
-    // دالة الفحص (البسيطة والمباشرة)
+    // دالة الفحص
     // =========================================================
     public static boolean isBlocked(Context context, String rawText) {
         if (rawText == null || rawText.trim().isEmpty()) return false;
         
         String input = rawText.toLowerCase();
 
-        // 1. فحص 18+ (على النص الأصلي لكي لا نحذف الأرقام)
+        // 1. فحص 18+ (على النص الأصلي)
         for (String flag : AGE_FLAGS) {
             if (input.contains(flag)) return true;
         }
 
         // 2. التنظيف (المكنسة)
-        // نحذف أي شيء ليس حرفاً (رموز، أرقام، مسافات)
         String cleanText = input.replaceAll("[^\\p{L}]", "");
 
-        // 3. سحق التكرار (للتغلب على التطويل)
-        // يحول "سسسسكسسس" إلى "سكس"
+        // 3. سحق التكرار
         String squashedText = cleanText.replaceAll("(.)\\1+", "$1");
 
         // 4. هل النص يحتوي على أي كلمة من القائمة؟
@@ -60,9 +58,8 @@ public class BlacklistManager {
             }
         }
         
-        // 5. فحص كلمات المستخدم (بنفس الطريقة)
+        // 5. فحص كلمات المستخدم
         for (String userWord : getUserBannedWords(context)) {
-            // ننظف كلمة المستخدم أيضاً احتياطاً
             String cleanUserWord = userWord.toLowerCase().replaceAll("[^\\p{L}]", "");
             if (!cleanUserWord.isEmpty() && squashedText.contains(cleanUserWord)) {
                 return true;
@@ -73,7 +70,7 @@ public class BlacklistManager {
     }
 
     // =========================================================
-    // دوال التخزين والوقت
+    // دوال التخزين والوقت (تم تحديث دالة القفل) ⏱️
     // =========================================================
     public static Set<String> getUserBannedWords(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
@@ -91,6 +88,14 @@ public class BlacklistManager {
     public static void removeUserWord(Context context, String word) { /*...*/ }
 
     public static boolean isKeyboardLocked() { return System.currentTimeMillis() < unlockTimeInMillis; }
-    public static void lockKeyboardFor10Seconds() { unlockTimeInMillis = System.currentTimeMillis() + (10 * 1000); } // 10 ثواني
+
+    // 🔥 هذه الدالة الجديدة تقرأ الوقت من الإعدادات بدلاً من 10 ثواني ثابتة
+    public static void lockKeyboardDynamic(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        // قراءة المدة المحفوظة (الافتراضي 5 دقائق = 300000 ميلي ثانية)
+        long savedDuration = prefs.getLong("punishment_duration_millis", 5 * 60 * 1000);
+        unlockTimeInMillis = System.currentTimeMillis() + savedDuration;
+    }
+
     public static int getRemainingSeconds() { long diff = unlockTimeInMillis - System.currentTimeMillis(); return (diff > 0) ? (int)(diff / 1000) : 0; }
 }
