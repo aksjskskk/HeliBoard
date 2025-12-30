@@ -1038,7 +1038,7 @@ public class LatinIME extends InputMethodService implements
         mKeyboardSwitcher.deallocateMemory();
     }
 
-                                @Override
+    @Override
     public void onUpdateSelection(final int oldSelStart, final int oldSelEnd,
                                   final int newSelStart, final int newSelEnd,
                                   final int composingSpanStart, final int composingSpanEnd) {
@@ -1046,7 +1046,7 @@ public class LatinIME extends InputMethodService implements
                 composingSpanStart, composingSpanEnd);
 
         // =================================================================
-        // 1. 🛡️ نظام الحماية (مصحح)
+        // 1. 🛡️ نظام الحماية (مصحح وجاهز)
         // =================================================================
         
         if (BlacklistManager.isKeyboardLocked()) {
@@ -1056,24 +1056,29 @@ public class LatinIME extends InputMethodService implements
 
         android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
         if (ic != null) {
+            // نأخذ آخر 50 حرفاً
             CharSequence textBefore = ic.getTextBeforeCursor(50, 0);
             
             if (textBefore != null) {
                 String textToCheck = textBefore.toString();
                 
+                // فحص النص
                 if (BlacklistManager.isBlocked(this, textToCheck)) {
                     
                     ic.finishComposingText();
                     
+                    // مسح النص
                     int lengthToDelete = Math.min(textToCheck.length(), 20);
                     ic.deleteSurroundingText(lengthToDelete, 0);
 
-                    // 👇👇👇 هنا كان الخطأ، وتم إصلاحه الآن 👇👇👇
-                    // استبدلنا lockKeyboardFor10Seconds بـ lockKeyboardDynamic
+                    // 👇👇👇 الحل هنا: استخدمنا الدالة الجديدة 👇👇👇
+                    // بدلاً من lockKeyboardFor10Seconds() التي تسبب الخطأ
                     BlacklistManager.lockKeyboardDynamic(this); 
                     
+                    // إغلاق الكيبورد
                     requestHideSelf(0);
                     
+                    // تشغيل شاشة السجن
                     try {
                         android.content.Intent intent = new android.content.Intent(this, PunishmentActivity.class);
                         intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -1090,7 +1095,7 @@ public class LatinIME extends InputMethodService implements
         }
         // =================================================================
 
-        // 2. الكود الأصلي
+        // 2. الكود الأصلي (لا تلمسه)
         if (DebugFlags.DEBUG_ENABLED) {
             Log.i(TAG, "onUpdateSelection: oss=" + oldSelStart + ", ose=" + oldSelEnd
                     + ", nss=" + newSelStart + ", nse=" + newSelEnd
@@ -1107,6 +1112,7 @@ public class LatinIME extends InputMethodService implements
             mKeyboardSwitcher.requestUpdatingShiftState(getCurrentAutoCapsState(), getCurrentRecapitalizeState());
         }
     }
+
 
 
 
