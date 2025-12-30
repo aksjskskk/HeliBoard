@@ -1038,7 +1038,7 @@ public class LatinIME extends InputMethodService implements
         mKeyboardSwitcher.deallocateMemory();
     }
 
-                             @Override
+                                @Override
     public void onUpdateSelection(final int oldSelStart, final int oldSelEnd,
                                   final int newSelStart, final int newSelEnd,
                                   final int composingSpanStart, final int composingSpanEnd) {
@@ -1046,10 +1046,9 @@ public class LatinIME extends InputMethodService implements
                 composingSpanStart, composingSpanEnd);
 
         // =================================================================
-        // 1. 🛡️ نظام الحماية المتكامل (Blocking System)
+        // 1. 🛡️ نظام الحماية (مصحح)
         // =================================================================
         
-        // أ. إذا كان الكيبورد معاقباً (والوقت لم ينتهِ)، أغلقه فوراً
         if (BlacklistManager.isKeyboardLocked()) {
             requestHideSelf(0);
             return;
@@ -1057,47 +1056,41 @@ public class LatinIME extends InputMethodService implements
 
         android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
         if (ic != null) {
-            // نأخذ آخر 50 حرف للفحص (سياق كافٍ)
             CharSequence textBefore = ic.getTextBeforeCursor(50, 0);
             
             if (textBefore != null) {
                 String textToCheck = textBefore.toString();
                 
-                // ب. نفحص النص عبر المدير
                 if (BlacklistManager.isBlocked(this, textToCheck)) {
                     
                     ic.finishComposingText();
                     
-                    // ج. مسح النص المحظور (نمسح آخر 20 حرف تقريباً)
                     int lengthToDelete = Math.min(textToCheck.length(), 20);
                     ic.deleteSurroundingText(lengthToDelete, 0);
 
-                    // د. تفعيل العقوبة الديناميكية (تقرأ الوقت من الإعدادات)
-                    BlacklistManager.lockKeyboardDynamic(this);
+                    // 👇👇👇 هنا كان الخطأ، وتم إصلاحه الآن 👇👇👇
+                    // استبدلنا lockKeyboardFor10Seconds بـ lockKeyboardDynamic
+                    BlacklistManager.lockKeyboardDynamic(this); 
                     
-                    // هـ. إغلاق الكيبورد
                     requestHideSelf(0);
                     
-                    // و. 🔥 تشغيل شاشة السجن (PunishmentActivity) 🔥
                     try {
                         android.content.Intent intent = new android.content.Intent(this, PunishmentActivity.class);
-                        // هذه الأعلام ضرورية جداً لتشغيل الشاشة من داخل خدمة الكيبورد ومنع الرجوع
                         intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
                         intent.addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP);
                         intent.addFlags(android.content.Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
                         startActivity(intent);
                     } catch (Exception e) {
-                        // في حال فشل فتح الشاشة لسبب ما، نظهر رسالة احتياطية
                         android.widget.Toast.makeText(this, "⛔ Device Locked!", android.widget.Toast.LENGTH_LONG).show();
                     }
                     
-                    return; // نخرج فوراً لمنع أي معالجة أخرى
+                    return;
                 }
             }
         }
         // =================================================================
 
-        // 2. الكود الأصلي للكيبورد (لا نلمسه لضمان عمل الكيبورد بشكل طبيعي)
+        // 2. الكود الأصلي
         if (DebugFlags.DEBUG_ENABLED) {
             Log.i(TAG, "onUpdateSelection: oss=" + oldSelStart + ", ose=" + oldSelEnd
                     + ", nss=" + newSelStart + ", nse=" + newSelEnd
@@ -1114,6 +1107,7 @@ public class LatinIME extends InputMethodService implements
             mKeyboardSwitcher.requestUpdatingShiftState(getCurrentAutoCapsState(), getCurrentRecapitalizeState());
         }
     }
+
 
 
 
