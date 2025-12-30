@@ -1450,7 +1450,7 @@ public class LatinIME extends InputMethodService implements
                             ic.deleteSurroundingText(lastWord.length(), 0);
                             
                             // ب. تفعيل عداد العقوبة (10 ثواني)
-                            BlacklistManager.lockKeyboardFor10Seconds();
+                            BlacklistManager.lockKeyboardDynamic(this);
                             
                             // ج. إظهار رسالة تأديبية
                             android.widget.Toast.makeText(this, "تم رصد كلمة ممنوعة! إغلاق لـ 10 ثواني", android.widget.Toast.LENGTH_LONG).show();
@@ -1512,7 +1512,7 @@ public class LatinIME extends InputMethodService implements
                         ic.deleteSurroundingText(lengthToDelete, 0);
                         
                         // ج. تفعيل العقوبة الزمنية
-                        BlacklistManager.lockKeyboardFor10Seconds();
+                        BlacklistManager.lockKeyboardDynamic(this);
                         
                         // د. إغلاق الكيبورد
                         requestHideSelf(0);
