@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FFFFFF"
+    android:padding="20dp">
+
+    <TextView
+        android:id="@+id/header_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Block Words Manager"
+        android:textColor="#000000"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="10dp"/>
+
+    <TextView
+        android:id="@+id/sub_header"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/header_title"
+        android:text="⚠️ WARNING: Any word added here becomes permanent. You CANNOT delete it later."
+        android:textColor="#D32F2F" 
+        android:textStyle="bold"
+        android:textSize="14sp"
+        android:layout_marginBottom="20dp"/>
+
+    <ListView
+        android:id="@+id/list_user_words"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/sub_header"
+        android:layout_above="@+id/btn_add_float"
+        android:divider="#DDDDDD"
+        android:dividerHeight="1dp"/>
+
+    <Button
+        android:id="@+id/btn_add_float"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentEnd="true"
+        android:layout_marginBottom="20dp"
+        android:layout_marginEnd="10dp"
+        android:text="+"
+        android:textSize="30sp"
+        android:textColor="#FFFFFF"
+        android:background="@android:drawable/btn_default"
+        android:backgroundTint="#D32F2F"
+        android:elevation="10dp"/>
+
+</RelativeLayout>
