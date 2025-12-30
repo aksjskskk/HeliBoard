@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package helium314.keyboard.settings.screens
 
+import android.content.Intent // ✅ استدعاء لتشغيل الشاشة
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -17,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import helium314.keyboard.latin.R
+import helium314.keyboard.latin.UserBannedWordsActivity // ✅ استدعاء ملفك الجديد
 import helium314.keyboard.latin.utils.JniUtils
 import helium314.keyboard.latin.utils.SubtypeLocaleUtils.displayName
 import helium314.keyboard.latin.utils.SubtypeSettings
@@ -47,6 +49,8 @@ fun MainSettingsScreen(
         settings = emptyList(),
     ) {
         val enabledSubtypes = SubtypeSettings.getEnabledSubtypes(true)
+        val context = LocalContext.current // ✅ تعريف الكونتكست لتشغيل الشاشة
+
         Scaffold(contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)) { innerPadding ->
             Column(
                 Modifier.verticalScroll(rememberScrollState()).then(Modifier.padding(innerPadding))
@@ -57,47 +61,70 @@ fun MainSettingsScreen(
                     onClick = onClickLanguage,
                     icon = R.drawable.ic_settings_languages
                 ) { NextScreenIcon() }
+
                 Preference(
                     name = stringResource(R.string.settings_screen_preferences),
                     onClick = onClickPreferences,
                     icon = R.drawable.ic_settings_preferences
                 ) { NextScreenIcon() }
+
+                // ========================================================
+                // 🔒 زر إدارة الكلمات المحظورة (الجديد)
+                // ========================================================
+                Preference(
+                    name = "Block Words Manager",
+                    description = "Add custom words to blocklist (Permanent)",
+                    onClick = {
+                        val intent = Intent(context, UserBannedWordsActivity::class.java)
+                        context.startActivity(intent)
+                    },
+                    icon = android.R.drawable.ic_lock_lock // أيقونة القفل
+                ) { NextScreenIcon() }
+                // ========================================================
+
                 Preference(
                     name = stringResource(R.string.settings_screen_appearance),
                     onClick = onClickAppearance,
                     icon = R.drawable.ic_settings_appearance
                 ) { NextScreenIcon() }
+
                 Preference(
                     name = stringResource(R.string.settings_screen_toolbar),
                     onClick = onClickToolbar,
                     icon = R.drawable.ic_settings_toolbar
                 ) { NextScreenIcon() }
+
                 if (JniUtils.sHaveGestureLib)
                     Preference(
                         name = stringResource(R.string.settings_screen_gesture),
                         onClick = onClickGestureTyping,
                         icon = R.drawable.ic_settings_gesture
                     ) { NextScreenIcon() }
+
                 Preference(
                     name = stringResource(R.string.settings_screen_correction),
                     onClick = onClickTextCorrection,
                     icon = R.drawable.ic_settings_correction
                 ) { NextScreenIcon() }
+
                 Preference(
                     name = stringResource(R.string.settings_screen_secondary_layouts),
                     onClick = onClickLayouts,
                     icon = R.drawable.ic_ime_switcher
                 ) { NextScreenIcon() }
+
                 Preference(
                     name = stringResource(R.string.dictionary_settings_category),
                     onClick = onClickDictionaries,
                     icon = R.drawable.ic_dictionary
                 ) { NextScreenIcon() }
+
                 Preference(
                     name = stringResource(R.string.settings_screen_advanced),
                     onClick = onClickAdvanced,
                     icon = R.drawable.ic_settings_advanced
                 ) { NextScreenIcon() }
+
                 Preference(
                     name = stringResource(R.string.settings_screen_about),
                     onClick = onClickAbout,
