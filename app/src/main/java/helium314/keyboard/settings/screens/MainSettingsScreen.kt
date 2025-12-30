@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package helium314.keyboard.settings.screens
 
-import android.content.Intent // ✅ استدعاء لتشغيل الشاشة
+import android.content.Intent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -18,7 +18,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import helium314.keyboard.latin.R
-import helium314.keyboard.latin.UserBannedWordsActivity // ✅ استدعاء ملفك الجديد
+// ✅ استدعاء الملفات الجديدة
+import helium314.keyboard.latin.UserBannedWordsActivity 
+import helium314.keyboard.latin.PunishmentSettingsActivity
 import helium314.keyboard.latin.utils.JniUtils
 import helium314.keyboard.latin.utils.SubtypeLocaleUtils.displayName
 import helium314.keyboard.latin.utils.SubtypeSettings
@@ -49,7 +51,7 @@ fun MainSettingsScreen(
         settings = emptyList(),
     ) {
         val enabledSubtypes = SubtypeSettings.getEnabledSubtypes(true)
-        val context = LocalContext.current // ✅ تعريف الكونتكست لتشغيل الشاشة
+        val context = LocalContext.current // لفتح الشاشات
 
         Scaffold(contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)) { innerPadding ->
             Column(
@@ -69,7 +71,7 @@ fun MainSettingsScreen(
                 ) { NextScreenIcon() }
 
                 // ========================================================
-                // 🔒 زر إدارة الكلمات المحظورة (الجديد)
+                // 🔒 1. Block Words Manager (زر الكلمات)
                 // ========================================================
                 Preference(
                     name = "Block Words Manager",
@@ -78,7 +80,20 @@ fun MainSettingsScreen(
                         val intent = Intent(context, UserBannedWordsActivity::class.java)
                         context.startActivity(intent)
                     },
-                    icon = android.R.drawable.ic_lock_lock // أيقونة القفل
+                    icon = android.R.drawable.ic_lock_lock
+                ) { NextScreenIcon() }
+
+                // ========================================================
+                // ⚙️ 2. Blocking Preferences (زر إعدادات العقاب)
+                // ========================================================
+                Preference(
+                    name = "Blocking Preferences",
+                    description = "Set punishment timer & custom screen media",
+                    onClick = {
+                        val intent = Intent(context, PunishmentSettingsActivity::class.java)
+                        context.startActivity(intent)
+                    },
+                    icon = android.R.drawable.ic_menu_manage // أيقونة الإعدادات
                 ) { NextScreenIcon() }
                 // ========================================================
 
