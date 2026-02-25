@@ -1,53 +1,111 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFFFFF"
-    android:padding="20dp">
+    android:orientation="vertical"
+    android:background="?android:attr/colorBackground"
+    tools:context=".UserBannedWordsActivity">
 
-    <TextView
-        android:id="@+id/header_title"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Block Words Manager"
-        android:textColor="#000000"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="10dp"/>
-
-    <TextView
-        android:id="@+id/sub_header"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/header_title"
-        android:text="⚠️ WARNING: Any word added here becomes permanent. You CANNOT delete it later."
-        android:textColor="#D32F2F" 
-        android:textStyle="bold"
-        android:textSize="14sp"
-        android:layout_marginBottom="20dp"/>
-
-    <ListView
-        android:id="@+id/list_user_words"
+    <!-- Toolbar / Header -->
+    <LinearLayout
+        android:id="@+id/toolbar"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_below="@id/sub_header"
-        android:layout_above="@+id/btn_add_float"
-        android:divider="#DDDDDD"
-        android:dividerHeight="1dp"/>
+        android:layout_height="?android:attr/actionBarSize"
+        android:background="?android:attr/colorPrimary"
+        android:elevation="4dp"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:theme="@android:style/ThemeOverlay.Material.Dark.ActionBar">
 
-    <Button
-        android:id="@+id/btn_add_float"
-        android:layout_width="60dp"
-        android:layout_height="60dp"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentEnd="true"
-        android:layout_marginBottom="20dp"
-        android:layout_marginEnd="10dp"
-        android:text="+"
-        android:textSize="30sp"
-        android:textColor="#FFFFFF"
-        android:background="@android:drawable/btn_default"
-        android:backgroundTint="#D32F2F"
-        android:elevation="10dp"/>
+        <ImageView
+            android:id="@+id/btn_back"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@android:drawable/ic_menu_revert"
+            android:tint="@android:color/white"
+            android:layout_marginEnd="16dp"
+            android:clickable="true"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Back"/>
 
-</RelativeLayout>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Manage Blocked Words"
+            android:textColor="@android:color/white"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <!-- Empty State -->
+        <LinearLayout
+            android:id="@+id/empty_state_layout"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:visibility="gone"
+            tools:visibility="visible">
+
+            <ImageView
+                android:layout_width="120dp"
+                android:layout_height="120dp"
+                android:src="@drawable/ic_block_empty"
+                android:contentDescription="No blocked words"
+                android:tint="?android:attr/textColorSecondary"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="No blocked words yet"
+                android:textSize="18sp"
+                android:textColor="?android:attr/textColorPrimary"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Tap + to add a new word to the block list"
+                android:textSize="14sp"
+                android:textColor="?android:attr/textColorSecondary"/>
+
+        </LinearLayout>
+
+        <!-- List View -->
+        <ListView
+            android:id="@+id/list_user_words"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:paddingTop="8dp"
+            android:paddingBottom="88dp"
+            android:clipToPadding="false"
+            android:divider="@android:color/transparent"
+            android:dividerHeight="8dp"/>
+
+        <!-- Custom Floating Action Button (FAB) -->
+        <ImageButton
+            android:id="@+id/btn_add_float"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_gravity="bottom|end"
+            android:layout_margin="16dp"
+            android:background="@drawable/bg_fab_circle"
+            android:src="@android:drawable/ic_input_add"
+            android:tint="@android:color/white"
+            android:elevation="6dp"
+            android:stateListAnimator="@null"
+            android:clickable="true"
+            android:focusable="true"
+            android:contentDescription="Add word" />
+
+    </FrameLayout>
+
+</LinearLayout>
