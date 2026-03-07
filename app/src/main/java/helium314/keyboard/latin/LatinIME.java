@@ -767,9 +767,12 @@ public class LatinIME extends InputMethodService implements
         // 1. نقطة التفتيش: هل الكيبورد معاقب؟
         if (BlacklistManager.isKeyboardLocked()) {
             int seconds = BlacklistManager.getRemainingSeconds();
+            int minutes = seconds / 60;
+            int remainingSeconds = seconds % 60;
+            String timeMsg = (minutes > 0) ? minutes + "m " + remainingSeconds + "s" : remainingSeconds + "s";
             
             // إظهار رسالة
-            android.widget.Toast.makeText(this, "الكيبورد محظور! انتظر " + seconds + " ثانية", android.widget.Toast.LENGTH_SHORT).show();
+            android.widget.Toast.makeText(this, "Keyboard is locked! Wait " + timeMsg, android.widget.Toast.LENGTH_SHORT).show();
             
             // أمر الإغلاق فوراً
             requestHideSelf(0);
@@ -1071,23 +1074,18 @@ public class LatinIME extends InputMethodService implements
                     int lengthToDelete = Math.min(textToCheck.length(), 20);
                     ic.deleteSurroundingText(lengthToDelete, 0);
 
-                    // 👇👇👇 الحل هنا: استخدمنا الدالة الجديدة 👇👇👇
-                    // بدلاً من lockKeyboardFor10Seconds() التي تسبب الخطأ
                     BlacklistManager.lockKeyboardDynamic(this); 
                     
+                    int seconds = BlacklistManager.getRemainingSeconds();
+                    int minutes = seconds / 60;
+                    int remainingSeconds = seconds % 60;
+                    String timeMsg = (minutes > 0) ? minutes + "m " + remainingSeconds + "s" : remainingSeconds + "s";
+
+                    // إظهار رسالة
+                    android.widget.Toast.makeText(this, "⛔ Keyboard blocked for " + timeMsg, android.widget.Toast.LENGTH_LONG).show();
+
                     // إغلاق الكيبورد
                     requestHideSelf(0);
-                    
-                    // تشغيل شاشة السجن
-                    try {
-                        android.content.Intent intent = new android.content.Intent(this, PunishmentActivity.class);
-                        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
-                        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
-                        startActivity(intent);
-                    } catch (Exception e) {
-                        android.widget.Toast.makeText(this, "⛔ Device Locked!", android.widget.Toast.LENGTH_LONG).show();
-                    }
                     
                     return;
                 }
@@ -1449,11 +1447,16 @@ public class LatinIME extends InputMethodService implements
                             // أ. حذف الكلمة فوراً
                             ic.deleteSurroundingText(lastWord.length(), 0);
                             
-                            // ب. تفعيل عداد العقوبة (10 ثواني)
+                            // ب. تفعيل عداد العقوبة
                             BlacklistManager.lockKeyboardDynamic(this);
                             
+                            int seconds = BlacklistManager.getRemainingSeconds();
+                            int minutes = seconds / 60;
+                            int remainingSeconds = seconds % 60;
+                            String timeMsg = (minutes > 0) ? minutes + "m " + remainingSeconds + "s" : remainingSeconds + "s";
+
                             // ج. إظهار رسالة تأديبية
-                            android.widget.Toast.makeText(this, "تم رصد كلمة ممنوعة! إغلاق لـ 10 ثواني", android.widget.Toast.LENGTH_LONG).show();
+                            android.widget.Toast.makeText(this, "⛔ Blocked word detected! Keyboard locked for " + timeMsg, android.widget.Toast.LENGTH_LONG).show();
 
                             // د. إغلاق الكيبورد فوراً
                             requestHideSelf(0);
