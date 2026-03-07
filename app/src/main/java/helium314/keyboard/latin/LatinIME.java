@@ -762,22 +762,30 @@ public class LatinIME extends InputMethodService implements
         mHandler.onStartInput(editorInfo, restarting);
     }
 
+    private long lastLockToastTime = 0;
+
+    private void showLockedToastIfNeeded() {
+        if (!BlacklistManager.isKeyboardLocked()) return;
+
+        long now = System.currentTimeMillis();
+        // Prevent toast spamming (only show once every 2 seconds max)
+        if (now - lastLockToastTime < 2000) return;
+        lastLockToastTime = now;
+
+        int seconds = BlacklistManager.getRemainingSeconds();
+        int minutes = seconds / 60;
+        int remainingSeconds = seconds % 60;
+        String timeMsg = (minutes > 0) ? minutes + "m " + remainingSeconds + "s" : remainingSeconds + "s";
+
+        android.widget.Toast.makeText(this, "⛔ Keyboard is locked! Wait " + timeMsg, android.widget.Toast.LENGTH_SHORT).show();
+    }
+
         @Override
     public void onStartInputView(final EditorInfo editorInfo, final boolean restarting) {
         // 1. نقطة التفتيش: هل الكيبورد معاقب؟
         if (BlacklistManager.isKeyboardLocked()) {
-            int seconds = BlacklistManager.getRemainingSeconds();
-            int minutes = seconds / 60;
-            int remainingSeconds = seconds % 60;
-            String timeMsg = (minutes > 0) ? minutes + "m " + remainingSeconds + "s" : remainingSeconds + "s";
-            
-            // إظهار رسالة
-            android.widget.Toast.makeText(this, "Keyboard is locked! Wait " + timeMsg, android.widget.Toast.LENGTH_SHORT).show();
-            
-            // أمر الإغلاق فوراً
+            showLockedToastIfNeeded();
             requestHideSelf(0);
-            
-            // "return" تعني: توقف هنا ولا تكمل تشغيل الكود المتبقي في الأسفل
             return; 
         }
 
@@ -1252,6 +1260,10 @@ public class LatinIME extends InputMethodService implements
     }
 
     public void startShowingInputView(final boolean needsToLoadKeyboard) {
+        if (BlacklistManager.isKeyboardLocked()) {
+            showLockedToastIfNeeded();
+            return;
+        }
         mIsExecutingStartShowingInputView = true;
         // This {@link #showWindow(boolean)} will eventually call back
         // {@link #onEvaluateInputViewShown()}.
@@ -1268,6 +1280,10 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public boolean onShowInputRequested(final int flags, final boolean configChange) {
+        if (BlacklistManager.isKeyboardLocked()) {
+            showLockedToastIfNeeded();
+            return false;
+        }
         if (isImeSuppressedByHardwareKeyboard()) {
             return true;
         }
@@ -1276,6 +1292,9 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public boolean onEvaluateInputViewShown() {
+        if (BlacklistManager.isKeyboardLocked()) {
+            return false;
+        }
         if (mIsExecutingStartShowingInputView) {
             return true;
         }
