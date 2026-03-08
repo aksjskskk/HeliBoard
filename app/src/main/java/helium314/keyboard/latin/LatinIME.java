@@ -777,11 +777,14 @@ public class LatinIME extends InputMethodService implements
 
         String fullMsg = customMsg + " Time remaining: " + timeMsg;
 
-        android.widget.Toast.makeText(this, fullMsg, android.widget.Toast.LENGTH_SHORT).show();
+        android.widget.Toast.makeText(getApplicationContext(), fullMsg, android.widget.Toast.LENGTH_SHORT).show();
     }
 
     @Override
     public void onStartInput(final EditorInfo editorInfo, final boolean restarting) {
+        if (BlacklistManager.isKeyboardLocked()) {
+            showLockedToastIfNeeded();
+        }
         mHandler.onStartInput(editorInfo, restarting);
     }
 
@@ -1280,8 +1283,7 @@ public class LatinIME extends InputMethodService implements
     public boolean onShowInputRequested(final int flags, final boolean configChange) {
         if (BlacklistManager.isKeyboardLocked()) {
             showLockedToastIfNeeded();
-            requestHideSelf(0);
-            return true;
+            return false;
         }
         if (isImeSuppressedByHardwareKeyboard()) {
             return true;
@@ -1291,6 +1293,9 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public boolean onEvaluateInputViewShown() {
+        if (BlacklistManager.isKeyboardLocked()) {
+            return false;
+        }
         if (mIsExecutingStartShowingInputView) {
             return true;
         }
