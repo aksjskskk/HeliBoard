@@ -800,13 +800,8 @@ public class LatinIME extends InputMethodService implements
     public void onStartInputView(final EditorInfo editorInfo, final boolean restarting) {
         // 1. نقطة التفتيش: هل الكيبورد معاقب؟
         if (BlacklistManager.isKeyboardLocked()) {
-            String msg = getLockedMessage();
-            mKeyboardSwitcher.setBlockedUI(true, msg);
-            showBlockedToast(msg);
-            // We do NOT call requestHideSelf() because we want to show the green overlay!
+            requestHideSelf(0);
             return; 
-        } else {
-            mKeyboardSwitcher.setBlockedUI(false, "");
         }
 
         // 2. إذا لم يكن محظوراً، أكمل العمل الطبيعي (الكود الأصلي الموجود سابقاً)
@@ -1081,6 +1076,7 @@ public class LatinIME extends InputMethodService implements
         // =================================================================
         
         if (BlacklistManager.isKeyboardLocked()) {
+            showBlockedToast(getLockedMessage());
             requestHideSelf(0);
             return;
         }
@@ -1103,9 +1099,8 @@ public class LatinIME extends InputMethodService implements
                     ic.deleteSurroundingText(lengthToDelete, 0);
 
                     BlacklistManager.lockKeyboardDynamic(this); 
-                    String msg = getLockedMessage();
-                    mKeyboardSwitcher.setBlockedUI(true, msg);
-                    showBlockedToast(msg);
+                    showBlockedToast(getLockedMessage());
+                    requestHideSelf(0);
                     
                     return;
                 }
@@ -1273,7 +1268,6 @@ public class LatinIME extends InputMethodService implements
 
     public void startShowingInputView(final boolean needsToLoadKeyboard) {
         if (BlacklistManager.isKeyboardLocked()) {
-            mKeyboardSwitcher.setBlockedUI(true, getLockedMessage());
             return;
         }
         mIsExecutingStartShowingInputView = true;
@@ -1292,6 +1286,9 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public boolean onShowInputRequested(final int flags, final boolean configChange) {
+        if (BlacklistManager.isKeyboardLocked()) {
+            return false;
+        }
         if (isImeSuppressedByHardwareKeyboard()) {
             return true;
         }
@@ -1300,6 +1297,9 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public boolean onEvaluateInputViewShown() {
+        if (BlacklistManager.isKeyboardLocked()) {
+            return false;
+        }
         if (mIsExecutingStartShowingInputView) {
             return true;
         }
@@ -1473,9 +1473,8 @@ public class LatinIME extends InputMethodService implements
                             
                             // ب. تفعيل عداد العقوبة
                             BlacklistManager.lockKeyboardDynamic(this);
-                            String msg = getLockedMessage();
-                            mKeyboardSwitcher.setBlockedUI(true, msg);
-                            showBlockedToast(msg);
+                            showBlockedToast(getLockedMessage());
+                            requestHideSelf(0);
                         }
                     }
                 }
@@ -1532,9 +1531,8 @@ public class LatinIME extends InputMethodService implements
                         
                         // ج. تفعيل العقوبة الزمنية
                         BlacklistManager.lockKeyboardDynamic(this);
-                        String msg = getLockedMessage();
-                        mKeyboardSwitcher.setBlockedUI(true, msg);
-                        showBlockedToast(msg);
+                        showBlockedToast(getLockedMessage());
+                        requestHideSelf(0);
                     }
                 }
             }
