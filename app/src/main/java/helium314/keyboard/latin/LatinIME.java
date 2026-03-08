@@ -757,13 +757,15 @@ public class LatinIME extends InputMethodService implements
         // To ensure that CandidatesView will never be set.
     }
 
-    @Override
-    public void onStartInput(final EditorInfo editorInfo, final boolean restarting) {
-        mHandler.onStartInput(editorInfo, restarting);
-    }
+    private long lastLockToastTime = 0;
 
     private void showLockedToastIfNeeded() {
         if (!BlacklistManager.isKeyboardLocked()) return;
+
+        long now = System.currentTimeMillis();
+        // Use a tiny 1-second debounce to prevent extreme OS spam when fields gain focus repeatedly
+        if (now - lastLockToastTime < 1000) return;
+        lastLockToastTime = now;
 
         int seconds = BlacklistManager.getRemainingSeconds();
         int minutes = seconds / 60;
@@ -778,11 +780,19 @@ public class LatinIME extends InputMethodService implements
         android.widget.Toast.makeText(this, fullMsg, android.widget.Toast.LENGTH_SHORT).show();
     }
 
+    @Override
+    public void onStartInput(final EditorInfo editorInfo, final boolean restarting) {
+        if (BlacklistManager.isKeyboardLocked()) {
+            showLockedToastIfNeeded();
+            // It's still good to let the handler process the start input, but we will not show the keyboard
+        }
+        mHandler.onStartInput(editorInfo, restarting);
+    }
+
         @Override
     public void onStartInputView(final EditorInfo editorInfo, final boolean restarting) {
         // 1. نقطة التفتيش: هل الكيبورد معاقب؟
         if (BlacklistManager.isKeyboardLocked()) {
-            showLockedToastIfNeeded();
             requestHideSelf(0);
             return; 
         }
