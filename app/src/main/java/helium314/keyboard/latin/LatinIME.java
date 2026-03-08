@@ -803,12 +803,20 @@ public class LatinIME extends InputMethodService implements
         mHandler.onStartInput(editorInfo, restarting);
     }
 
-        @Override
+    @Override
     public void onStartInputView(final EditorInfo editorInfo, final boolean restarting) {
         // 1. نقطة التفتيش: هل الكيبورد معاقب؟
         if (BlacklistManager.isKeyboardLocked()) {
+            if (mInputView != null) {
+                mInputView.setVisibility(View.GONE);
+            }
+            showLockedToastIfNeeded();
             requestHideSelf(0);
             return; 
+        } else {
+            if (mInputView != null && mInputView.getVisibility() != View.VISIBLE) {
+                mInputView.setVisibility(View.VISIBLE);
+            }
         }
 
         // 2. إذا لم يكن محظوراً، أكمل العمل الطبيعي (الكود الأصلي الموجود سابقاً)
@@ -1296,11 +1304,6 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public boolean onShowInputRequested(final int flags, final boolean configChange) {
-        if (BlacklistManager.isKeyboardLocked()) {
-            // We already show the toast in onStartInput which is guaranteed to fire.
-            // Returning false cleanly denies the request without any visual glitches or empty views.
-            return false;
-        }
         if (isImeSuppressedByHardwareKeyboard()) {
             return true;
         }
@@ -1309,9 +1312,6 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public boolean onEvaluateInputViewShown() {
-        if (BlacklistManager.isKeyboardLocked()) {
-            return false;
-        }
         if (mIsExecutingStartShowingInputView) {
             return true;
         }
