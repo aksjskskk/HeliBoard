@@ -797,7 +797,9 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public void onStartInput(final EditorInfo editorInfo, final boolean restarting) {
-        // Do NOT show toast here. This gets called too often (even invisibly).
+        if (BlacklistManager.isKeyboardLocked()) {
+            showLockedToastIfNeeded();
+        }
         mHandler.onStartInput(editorInfo, restarting);
     }
 
@@ -1295,8 +1297,7 @@ public class LatinIME extends InputMethodService implements
     @Override
     public boolean onShowInputRequested(final int flags, final boolean configChange) {
         if (BlacklistManager.isKeyboardLocked()) {
-            // This is the EXACT moment an app explicitly asks the keyboard to pop up.
-            showLockedToastIfNeeded();
+            // We already show the toast in onStartInput which is guaranteed to fire.
             // Returning false cleanly denies the request without any visual glitches or empty views.
             return false;
         }
