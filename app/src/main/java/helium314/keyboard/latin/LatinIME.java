@@ -757,49 +757,21 @@ public class LatinIME extends InputMethodService implements
         // To ensure that CandidatesView will never be set.
     }
 
-    private long lastLockToastTime = 0;
+    private String getLockedMessage() {
+        int seconds = BlacklistManager.getRemainingSeconds();
+        int minutes = seconds / 60;
+        int remainingSeconds = seconds % 60;
+        String timeMsg = (minutes > 0) ? minutes + "m " + remainingSeconds + "s" : remainingSeconds + "s";
 
-    private void showLockedToastIfNeeded() {
-        if (!BlacklistManager.isKeyboardLocked()) return;
+        android.content.SharedPreferences prefs = helium314.keyboard.latin.utils.DeviceProtectedUtils.getSharedPreferences(this);
+        String customMsg = prefs.getString("custom_blocked_toast_message", "The keyboard is blocked.");
+        if (customMsg == null) customMsg = "The keyboard is blocked.";
 
-        long now = System.currentTimeMillis();
-        // Use a 2-second debounce to prevent extreme OS spam and potential crashes from rapid emoji rendering
-        if (now - lastLockToastTime < 2000) return;
-        lastLockToastTime = now;
-
-        try {
-            int seconds = BlacklistManager.getRemainingSeconds();
-            int minutes = seconds / 60;
-            int remainingSeconds = seconds % 60;
-            String timeMsg = (minutes > 0) ? minutes + "m " + remainingSeconds + "s" : remainingSeconds + "s";
-
-            android.content.SharedPreferences prefs = helium314.keyboard.latin.utils.DeviceProtectedUtils.getSharedPreferences(this);
-            String customMsg = prefs.getString("custom_blocked_toast_message", "The keyboard is blocked.");
-            if (customMsg == null) customMsg = "The keyboard is blocked."; // Safety check
-
-            final String fullMsg = customMsg + " Time remaining: " + timeMsg;
-
-            // Post to main thread to ensure proper UI context, using base Context to avoid background service restrictions
-            new android.os.Handler(android.os.Looper.getMainLooper()).post(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        android.widget.Toast.makeText(getBaseContext(), fullMsg, android.widget.Toast.LENGTH_SHORT).show();
-                    } catch (Exception e) {
-                        Log.e(TAG, "Failed to show locked toast", e);
-                    }
-                }
-            });
-        } catch (Exception e) {
-            Log.e(TAG, "Error preparing locked toast", e);
-        }
+        return customMsg + "\nTime remaining: " + timeMsg;
     }
 
     @Override
     public void onStartInput(final EditorInfo editorInfo, final boolean restarting) {
-        if (BlacklistManager.isKeyboardLocked()) {
-            showLockedToastIfNeeded();
-        }
         mHandler.onStartInput(editorInfo, restarting);
     }
 
@@ -807,16 +779,11 @@ public class LatinIME extends InputMethodService implements
     public void onStartInputView(final EditorInfo editorInfo, final boolean restarting) {
         // 1. نقطة التفتيش: هل الكيبورد معاقب؟
         if (BlacklistManager.isKeyboardLocked()) {
-            if (mInputView != null) {
-                mInputView.setVisibility(View.GONE);
-            }
-            showLockedToastIfNeeded();
-            requestHideSelf(0);
+            mKeyboardSwitcher.setBlockedUI(true, getLockedMessage());
+            // We do NOT call requestHideSelf() because we want to show the green overlay!
             return; 
         } else {
-            if (mInputView != null && mInputView.getVisibility() != View.VISIBLE) {
-                mInputView.setVisibility(View.VISIBLE);
-            }
+            mKeyboardSwitcher.setBlockedUI(false, "");
         }
 
         // 2. إذا لم يكن محظوراً، أكمل العمل الطبيعي (الكود الأصلي الموجود سابقاً)
@@ -1113,10 +1080,7 @@ public class LatinIME extends InputMethodService implements
                     ic.deleteSurroundingText(lengthToDelete, 0);
 
                     BlacklistManager.lockKeyboardDynamic(this); 
-                    showLockedToastIfNeeded();
-                    
-                    // إغلاق الكيبورد
-                    requestHideSelf(0);
+                    mKeyboardSwitcher.setBlockedUI(true, getLockedMessage());
                     
                     return;
                 }
@@ -1284,8 +1248,7 @@ public class LatinIME extends InputMethodService implements
 
     public void startShowingInputView(final boolean needsToLoadKeyboard) {
         if (BlacklistManager.isKeyboardLocked()) {
-            showLockedToastIfNeeded();
-            requestHideSelf(0);
+            mKeyboardSwitcher.setBlockedUI(true, getLockedMessage());
             return;
         }
         mIsExecutingStartShowingInputView = true;
@@ -1485,10 +1448,7 @@ public class LatinIME extends InputMethodService implements
                             
                             // ب. تفعيل عداد العقوبة
                             BlacklistManager.lockKeyboardDynamic(this);
-                            showLockedToastIfNeeded();
-
-                            // د. إغلاق الكيبورد فوراً
-                            requestHideSelf(0);
+                            mKeyboardSwitcher.setBlockedUI(true, getLockedMessage());
                         }
                     }
                 }
@@ -1545,10 +1505,7 @@ public class LatinIME extends InputMethodService implements
                         
                         // ج. تفعيل العقوبة الزمنية
                         BlacklistManager.lockKeyboardDynamic(this);
-                        showLockedToastIfNeeded();
-                        
-                        // د. إغلاق الكيبورد
-                        requestHideSelf(0);
+                        mKeyboardSwitcher.setBlockedUI(true, getLockedMessage());
                     }
                 }
             }

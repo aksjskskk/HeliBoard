@@ -59,6 +59,8 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
     private InputView mCurrentInputView;
     private KeyboardWrapperView mKeyboardViewWrapper;
     private View mMainKeyboardFrame;
+    private View mBlockedKeyboardFrame;
+    private android.widget.TextView mBlockedMessageText;
     private MainKeyboardView mKeyboardView;
     private EmojiPalettesView mEmojiPalettesView;
     private View mEmojiTabStripView;
@@ -563,6 +565,20 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
         return Settings.getValues().mSecondaryStripVisible? View.VISIBLE : View.GONE;
     }
 
+    public void setBlockedUI(boolean isBlocked, String message) {
+        if (mBlockedKeyboardFrame == null || mMainKeyboardFrame == null || mBlockedMessageText == null) return;
+        if (isBlocked) {
+            mBlockedMessageText.setText(message);
+            mBlockedKeyboardFrame.setVisibility(View.VISIBLE);
+            mMainKeyboardFrame.setVisibility(View.GONE);
+            if (mEmojiPalettesView != null) mEmojiPalettesView.setVisibility(View.GONE);
+            if (mClipboardHistoryView != null) mClipboardHistoryView.setVisibility(View.GONE);
+        } else {
+            mBlockedKeyboardFrame.setVisibility(View.GONE);
+            mMainKeyboardFrame.setVisibility(View.VISIBLE);
+        }
+    }
+
     // Displays a toast-like message with the provided text for a specified duration.
     private void showFakeToast(final String text, final int timeMillis) {
         if (mFakeToastView.getVisibility() == View.VISIBLE) return;
@@ -700,6 +716,8 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
         updateKeyboardThemeAndContextThemeWrapper(displayContext, KeyboardTheme.getKeyboardTheme(displayContext));
         mCurrentInputView = (InputView)LayoutInflater.from(mThemeContext).inflate(R.layout.input_view, null);
         mMainKeyboardFrame = mCurrentInputView.findViewById(R.id.main_keyboard_frame);
+        mBlockedKeyboardFrame = mCurrentInputView.findViewById(R.id.keyboard_blocked_frame);
+        mBlockedMessageText = mCurrentInputView.findViewById(R.id.blocked_message_text);
         mEmojiPalettesView = mCurrentInputView.findViewById(R.id.emoji_palettes_view);
         mClipboardHistoryView = mCurrentInputView.findViewById(R.id.clipboard_history_view);
         mFakeToastView = mCurrentInputView.findViewById(R.id.fakeToast);
