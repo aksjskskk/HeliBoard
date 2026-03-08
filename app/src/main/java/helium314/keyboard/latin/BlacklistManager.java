@@ -2,7 +2,7 @@ package helium314.keyboard.latin;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.preference.PreferenceManager;
+import helium314.keyboard.latin.utils.DeviceProtectedUtils;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -73,13 +73,13 @@ public class BlacklistManager {
     // دوال التخزين والوقت (تم تحديث دالة القفل) ⏱️
     // =========================================================
     public static Set<String> getUserBannedWords(Context context) {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        SharedPreferences prefs = DeviceProtectedUtils.getSharedPreferences(context);
         return prefs.getStringSet(PREF_USER_BANNED_WORDS, new HashSet<>());
     }
 
     public static void addUserWord(Context context, String word) {
         if (word == null || word.trim().isEmpty()) return;
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        SharedPreferences prefs = DeviceProtectedUtils.getSharedPreferences(context);
         Set<String> currentList = new HashSet<>(getUserBannedWords(context));
         currentList.add(word.trim());
         prefs.edit().putStringSet(PREF_USER_BANNED_WORDS, currentList).apply();
@@ -91,7 +91,7 @@ public class BlacklistManager {
 
     // 🔥 هذه الدالة الجديدة تقرأ الوقت من الإعدادات بدلاً من 10 ثواني ثابتة
     public static void lockKeyboardDynamic(Context context) {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        SharedPreferences prefs = DeviceProtectedUtils.getSharedPreferences(context);
         // قراءة المدة المحفوظة (الافتراضي 5 دقائق = 300000 ميلي ثانية)
         long savedDuration = prefs.getLong("punishment_duration_millis", 5 * 60 * 1000);
         unlockTimeInMillis = System.currentTimeMillis() + savedDuration;

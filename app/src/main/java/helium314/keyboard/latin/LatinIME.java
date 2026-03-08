@@ -772,7 +772,7 @@ public class LatinIME extends InputMethodService implements
         int remainingSeconds = seconds % 60;
         String timeMsg = (minutes > 0) ? minutes + "m " + remainingSeconds + "s" : remainingSeconds + "s";
 
-        android.content.SharedPreferences prefs = android.preference.PreferenceManager.getDefaultSharedPreferences(this);
+        android.content.SharedPreferences prefs = helium314.keyboard.latin.utils.DeviceProtectedUtils.getSharedPreferences(this);
         String customMsg = prefs.getString("custom_blocked_toast_message", "The keyboard is blocked.");
 
         String fullMsg = customMsg + " Time remaining: " + timeMsg;
@@ -782,10 +782,6 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public void onStartInput(final EditorInfo editorInfo, final boolean restarting) {
-        if (BlacklistManager.isKeyboardLocked()) {
-            showLockedToastIfNeeded();
-            // It's still good to let the handler process the start input, but we will not show the keyboard
-        }
         mHandler.onStartInput(editorInfo, restarting);
     }
 
@@ -1263,6 +1259,7 @@ public class LatinIME extends InputMethodService implements
     public void startShowingInputView(final boolean needsToLoadKeyboard) {
         if (BlacklistManager.isKeyboardLocked()) {
             showLockedToastIfNeeded();
+            requestHideSelf(0);
             return;
         }
         mIsExecutingStartShowingInputView = true;
@@ -1283,7 +1280,8 @@ public class LatinIME extends InputMethodService implements
     public boolean onShowInputRequested(final int flags, final boolean configChange) {
         if (BlacklistManager.isKeyboardLocked()) {
             showLockedToastIfNeeded();
-            return false;
+            requestHideSelf(0);
+            return true;
         }
         if (isImeSuppressedByHardwareKeyboard()) {
             return true;
@@ -1293,9 +1291,6 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public boolean onEvaluateInputViewShown() {
-        if (BlacklistManager.isKeyboardLocked()) {
-            return false;
-        }
         if (mIsExecutingStartShowingInputView) {
             return true;
         }
