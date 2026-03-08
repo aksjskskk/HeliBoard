@@ -20,10 +20,17 @@ public class BlacklistManager {
         "بدونملابس", "مصلخ", "متناك", "هز", "ردح", "ملاهي", "شرموط", "عاهرة",
         "زنا", "محارم", "فرج", "كس", "مخنث", "قحبة", "تحرش", "مؤخرة",
         "خلفيةبنت", "خلفيةامراة", "خلفيةنساء", "استمناء", "حلوك", "حلوگ", "بوس",
-        "مضاجعة", "اباحي",
+        "مضاجعة", "اباحي", "شواذ", "لواط", "سحاق", "دعارة", "مومس", "عاهر",
+        "ديوث", "عرص", "خنيث", "سافل", "سافلة", "عشيقة", "مكوة", "بزاز", "نهود",
+        "فحش", "فاحشة", "فاحش",
         // --- الإنجليزية ---
-        "xnxx", "nxxx", "xxnx", "xxx", "sex", "hotgirl", "hotwomen", "hotlady", // 🔥 تمت الإضافة هنا
-        "ass", "naked", "horny", "sucking", "licking", "porn"
+        "xnxx", "nxxx", "xxnx", "xxx", "sex", "hotgirl", "hotwomen", "hotlady",
+        "ass", "naked", "horny", "sucking", "licking", "porn", "porno", "pornography",
+        "nude", "nudity", "blowjob", "handjob", "boobs", "tits", "vagina", "pussy",
+        "dick", "cock", "penis", "dildo", "masturbate", "masturbation", "orgasm",
+        "slut", "whore", "bitch", "hooker", "milf", "milfs", "stepmom", "incest",
+        "hentai", "hentai", "cum", "cumshot", "creampie", "squirt", "facial",
+        "anal", "anus", "threesome", "gangbang", "bdsm", "bondage", "fetish", "kink"
     );
 
     // قائمة 18+ الخاصة
@@ -61,7 +68,9 @@ public class BlacklistManager {
         // 5. فحص كلمات المستخدم
         for (String userWord : getUserBannedWords(context)) {
             String cleanUserWord = userWord.toLowerCase().replaceAll("[^\\p{L}]", "");
-            if (!cleanUserWord.isEmpty() && squashedText.contains(cleanUserWord)) {
+            // Also squash the user word so it matches the squashed input
+            String squashedUserWord = cleanUserWord.replaceAll("(.)\\1+", "$1");
+            if (!squashedUserWord.isEmpty() && (squashedText.contains(squashedUserWord) || cleanText.contains(cleanUserWord))) {
                 return true;
             }
         }
