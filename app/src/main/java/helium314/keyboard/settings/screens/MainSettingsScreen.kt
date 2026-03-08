@@ -28,6 +28,7 @@ import helium314.keyboard.settings.NextScreenIcon
 import helium314.keyboard.settings.SearchSettingsScreen
 import helium314.keyboard.settings.Theme
 import helium314.keyboard.settings.dialogs.ListPickerDialog
+import helium314.keyboard.settings.dialogs.TextInputDialog
 import helium314.keyboard.settings.initPreview
 import helium314.keyboard.settings.preferences.Preference
 import helium314.keyboard.settings.previewDark
@@ -122,6 +123,32 @@ fun MainSettingsScreen(
                         selectedItem = selectedBanOption,
                         title = { Text("Select Ban Duration") },
                         getItemName = { it.first }
+                    )
+                }
+
+                // ========================================================
+                // 💬 3. Toast Message (Custom Ban Message)
+                // ========================================================
+                var showToastMessageDialog by rememberSaveable { mutableStateOf(false) }
+                val defaultToastMsg = "The keyboard is blocked."
+                val currentToastMsg = prefs.getString("custom_blocked_toast_message", defaultToastMsg) ?: defaultToastMsg
+
+                Preference(
+                    name = "Toast Message",
+                    description = currentToastMsg,
+                    onClick = { showToastMessageDialog = true },
+                    icon = android.R.drawable.ic_dialog_info
+                )
+
+                if (showToastMessageDialog) {
+                    TextInputDialog(
+                        onDismissRequest = { showToastMessageDialog = false },
+                        onConfirmed = { text ->
+                            prefs.edit { putString("custom_blocked_toast_message", text.ifBlank { defaultToastMsg }) }
+                            showToastMessageDialog = false
+                        },
+                        initialText = currentToastMsg,
+                        title = { Text("Toast Message") }
                     )
                 }
                 // ========================================================

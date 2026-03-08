@@ -762,22 +762,20 @@ public class LatinIME extends InputMethodService implements
         mHandler.onStartInput(editorInfo, restarting);
     }
 
-    private long lastLockToastTime = 0;
-
     private void showLockedToastIfNeeded() {
         if (!BlacklistManager.isKeyboardLocked()) return;
-
-        long now = System.currentTimeMillis();
-        // Prevent toast spamming (only show once every 2 seconds max)
-        if (now - lastLockToastTime < 2000) return;
-        lastLockToastTime = now;
 
         int seconds = BlacklistManager.getRemainingSeconds();
         int minutes = seconds / 60;
         int remainingSeconds = seconds % 60;
         String timeMsg = (minutes > 0) ? minutes + "m " + remainingSeconds + "s" : remainingSeconds + "s";
 
-        android.widget.Toast.makeText(this, "⛔ Keyboard is locked! Wait " + timeMsg, android.widget.Toast.LENGTH_SHORT).show();
+        android.content.SharedPreferences prefs = android.preference.PreferenceManager.getDefaultSharedPreferences(this);
+        String customMsg = prefs.getString("custom_blocked_toast_message", "The keyboard is blocked.");
+
+        String fullMsg = customMsg + " Time remaining: " + timeMsg;
+
+        android.widget.Toast.makeText(this, fullMsg, android.widget.Toast.LENGTH_SHORT).show();
     }
 
         @Override
@@ -1083,15 +1081,8 @@ public class LatinIME extends InputMethodService implements
                     ic.deleteSurroundingText(lengthToDelete, 0);
 
                     BlacklistManager.lockKeyboardDynamic(this); 
+                    showLockedToastIfNeeded();
                     
-                    int seconds = BlacklistManager.getRemainingSeconds();
-                    int minutes = seconds / 60;
-                    int remainingSeconds = seconds % 60;
-                    String timeMsg = (minutes > 0) ? minutes + "m " + remainingSeconds + "s" : remainingSeconds + "s";
-
-                    // إظهار رسالة
-                    android.widget.Toast.makeText(this, "⛔ Keyboard blocked for " + timeMsg, android.widget.Toast.LENGTH_LONG).show();
-
                     // إغلاق الكيبورد
                     requestHideSelf(0);
                     
@@ -1468,14 +1459,7 @@ public class LatinIME extends InputMethodService implements
                             
                             // ب. تفعيل عداد العقوبة
                             BlacklistManager.lockKeyboardDynamic(this);
-                            
-                            int seconds = BlacklistManager.getRemainingSeconds();
-                            int minutes = seconds / 60;
-                            int remainingSeconds = seconds % 60;
-                            String timeMsg = (minutes > 0) ? minutes + "m " + remainingSeconds + "s" : remainingSeconds + "s";
-
-                            // ج. إظهار رسالة تأديبية
-                            android.widget.Toast.makeText(this, "⛔ Blocked word detected! Keyboard locked for " + timeMsg, android.widget.Toast.LENGTH_LONG).show();
+                            showLockedToastIfNeeded();
 
                             // د. إغلاق الكيبورد فوراً
                             requestHideSelf(0);
@@ -1535,12 +1519,10 @@ public class LatinIME extends InputMethodService implements
                         
                         // ج. تفعيل العقوبة الزمنية
                         BlacklistManager.lockKeyboardDynamic(this);
+                        showLockedToastIfNeeded();
                         
                         // د. إغلاق الكيبورد
                         requestHideSelf(0);
-                        
-                        // هـ. رسالة للمستخدم
-                        android.widget.Toast.makeText(this, "⛔ تم الحظر لمدة 10 ثواني", android.widget.Toast.LENGTH_LONG).show();
                     }
                 }
             }
