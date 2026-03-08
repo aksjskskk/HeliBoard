@@ -763,28 +763,41 @@ public class LatinIME extends InputMethodService implements
         if (!BlacklistManager.isKeyboardLocked()) return;
 
         long now = System.currentTimeMillis();
-        // Use a tiny 1-second debounce to prevent extreme OS spam when fields gain focus repeatedly
-        if (now - lastLockToastTime < 1000) return;
+        // Use a 2-second debounce to prevent extreme OS spam and potential crashes from rapid emoji rendering
+        if (now - lastLockToastTime < 2000) return;
         lastLockToastTime = now;
 
-        int seconds = BlacklistManager.getRemainingSeconds();
-        int minutes = seconds / 60;
-        int remainingSeconds = seconds % 60;
-        String timeMsg = (minutes > 0) ? minutes + "m " + remainingSeconds + "s" : remainingSeconds + "s";
+        try {
+            int seconds = BlacklistManager.getRemainingSeconds();
+            int minutes = seconds / 60;
+            int remainingSeconds = seconds % 60;
+            String timeMsg = (minutes > 0) ? minutes + "m " + remainingSeconds + "s" : remainingSeconds + "s";
 
-        android.content.SharedPreferences prefs = helium314.keyboard.latin.utils.DeviceProtectedUtils.getSharedPreferences(this);
-        String customMsg = prefs.getString("custom_blocked_toast_message", "The keyboard is blocked.");
+            android.content.SharedPreferences prefs = helium314.keyboard.latin.utils.DeviceProtectedUtils.getSharedPreferences(this);
+            String customMsg = prefs.getString("custom_blocked_toast_message", "The keyboard is blocked.");
+            if (customMsg == null) customMsg = "The keyboard is blocked."; // Safety check
 
-        String fullMsg = customMsg + " Time remaining: " + timeMsg;
+            final String fullMsg = customMsg + " Time remaining: " + timeMsg;
 
-        android.widget.Toast.makeText(getApplicationContext(), fullMsg, android.widget.Toast.LENGTH_SHORT).show();
+            // Post to main thread to ensure proper UI context, using base Context to avoid background service restrictions
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        android.widget.Toast.makeText(getBaseContext(), fullMsg, android.widget.Toast.LENGTH_SHORT).show();
+                    } catch (Exception e) {
+                        Log.e(TAG, "Failed to show locked toast", e);
+                    }
+                }
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "Error preparing locked toast", e);
+        }
     }
 
     @Override
     public void onStartInput(final EditorInfo editorInfo, final boolean restarting) {
-        if (BlacklistManager.isKeyboardLocked()) {
-            showLockedToastIfNeeded();
-        }
+        // Do NOT show toast here. This gets called too often (even invisibly).
         mHandler.onStartInput(editorInfo, restarting);
     }
 
@@ -1282,7 +1295,9 @@ public class LatinIME extends InputMethodService implements
     @Override
     public boolean onShowInputRequested(final int flags, final boolean configChange) {
         if (BlacklistManager.isKeyboardLocked()) {
+            // This is the EXACT moment an app explicitly asks the keyboard to pop up.
             showLockedToastIfNeeded();
+            // Returning false cleanly denies the request without any visual glitches or empty views.
             return false;
         }
         if (isImeSuppressedByHardwareKeyboard()) {
