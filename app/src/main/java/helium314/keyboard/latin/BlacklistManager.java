@@ -43,6 +43,10 @@ public class BlacklistManager {
     // دالة الفحص
     // =========================================================
     public static boolean isBlocked(Context context, String rawText) {
+        // [DEBUG TEST ONLY] Return false to completely disable word blocking
+        return false;
+
+        /*
         if (rawText == null || rawText.trim().isEmpty()) return false;
         
         String input = rawText.toLowerCase();
@@ -76,6 +80,7 @@ public class BlacklistManager {
         }
 
         return false;
+        */
     }
 
     // =========================================================
