@@ -1076,8 +1076,6 @@ public class LatinIME extends InputMethodService implements
         // =================================================================
         
         if (BlacklistManager.isKeyboardLocked()) {
-            showBlockedToast(getLockedMessage());
-            requestHideSelf(0);
             return;
         }
 
@@ -1100,7 +1098,7 @@ public class LatinIME extends InputMethodService implements
 
                     BlacklistManager.lockKeyboardDynamic(this); 
                     showBlockedToast(getLockedMessage());
-                    requestHideSelf(0);
+                    if (mInputView != null) mInputView.setVisibility(View.GONE);
                     
                     return;
                 }
@@ -1474,7 +1472,7 @@ public class LatinIME extends InputMethodService implements
                             // ب. تفعيل عداد العقوبة
                             BlacklistManager.lockKeyboardDynamic(this);
                             showBlockedToast(getLockedMessage());
-                            requestHideSelf(0);
+                            if (mInputView != null) mInputView.setVisibility(View.GONE);
                         }
                     }
                 }
@@ -1532,7 +1530,7 @@ public class LatinIME extends InputMethodService implements
                         // ج. تفعيل العقوبة الزمنية
                         BlacklistManager.lockKeyboardDynamic(this);
                         showBlockedToast(getLockedMessage());
-                        requestHideSelf(0);
+                        if (mInputView != null) mInputView.setVisibility(View.GONE);
                     }
                 }
             }
