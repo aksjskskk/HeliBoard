@@ -1,10 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    SPDX-License-Identifier: GPL-3.0-only
--->
 <resources>
-    <string name="english_ime_name" translatable="false">HeliBoard debug</string>
-    <string name="spell_checker_service_name" translatable="false">HeliBoard debug Spell Checker</string>
-    <string name="ime_settings" translatable="false">HeliBoard debug Settings</string>
-
+    <string name="english_ime_name" translatable="false">HeliBoard_try_1</string>
+    <string name="shortcuts_activity_title" translatable="false">HeliBoard_try_1 Shortcuts</string>
+    <string name="spell_checker_service_name">HeliBoard_try_1 Spell Checker</string>
+    <string name="ime_settings">HeliBoard_try_1 Settings</string>
+    <string name="android_spell_checker_settings">HeliBoard_try_1 Spell Checker Settings</string>
 </resources>

@@ -783,9 +783,9 @@ public class LatinIME extends InputMethodService implements
             @Override
             public void run() {
                 try {
-                    android.widget.Toast.makeText(getBaseContext(), finalMessage, android.widget.Toast.LENGTH_SHORT).show();
+                    helium314.keyboard.keyboard.KeyboardSwitcher.getInstance().showToast(finalMessage, false);
                 } catch (Exception e) {
-                    Log.e(TAG, "Failed to show locked toast", e);
+                    Log.e(TAG, "Failed to show locked fake toast", e);
                 }
             }
         });
@@ -798,17 +798,26 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public void onStartInputView(final EditorInfo editorInfo, final boolean restarting) {
-        showBlockedToast("DEBUG: Keyboard is opening!");
-
         // 1. نقطة التفتيش: هل الكيبورد معاقب؟
-        /*
         if (BlacklistManager.isKeyboardLocked()) {
-            requestHideSelf(0);
+            if (mInputView != null) {
+                android.view.View mainFrame = mInputView.findViewById(R.id.main_keyboard_frame);
+                if (mainFrame != null) {
+                    mainFrame.setVisibility(android.view.View.GONE);
+                }
+            }
+            showBlockedToast(getLockedMessage());
+            // Do NOT call requestHideSelf(0) otherwise the fake toast has no window to draw on!
             return; 
         }
-        */
 
         // 2. إذا لم يكن محظوراً، أكمل العمل الطبيعي (الكود الأصلي الموجود سابقاً)
+        if (mInputView != null) {
+            android.view.View mainFrame = mInputView.findViewById(R.id.main_keyboard_frame);
+            if (mainFrame != null && mainFrame.getVisibility() != android.view.View.VISIBLE) {
+                mainFrame.setVisibility(android.view.View.VISIBLE);
+            }
+        }
         mHandler.onStartInputView(editorInfo, restarting);
         mStatsUtilsManager.onStartInputView();
     }
@@ -1079,11 +1088,9 @@ public class LatinIME extends InputMethodService implements
         // 1. 🛡️ نظام الحماية (مصحح وجاهز)
         // =================================================================
         
-        /*
         if (BlacklistManager.isKeyboardLocked()) {
             return;
         }
-        */
 
         android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
         if (ic != null) {
@@ -1104,7 +1111,10 @@ public class LatinIME extends InputMethodService implements
 
                     BlacklistManager.lockKeyboardDynamic(this); 
                     showBlockedToast(getLockedMessage());
-                    if (mInputView != null) mInputView.setVisibility(View.GONE);
+                    if (mInputView != null) {
+                        android.view.View mainFrame = mInputView.findViewById(R.id.main_keyboard_frame);
+                        if (mainFrame != null) mainFrame.setVisibility(android.view.View.GONE);
+                    }
                     
                     return;
                 }
@@ -1271,11 +1281,9 @@ public class LatinIME extends InputMethodService implements
     }
 
     public void startShowingInputView(final boolean needsToLoadKeyboard) {
-        /*
         if (BlacklistManager.isKeyboardLocked()) {
             return;
         }
-        */
         mIsExecutingStartShowingInputView = true;
         // This {@link #showWindow(boolean)} will eventually call back
         // {@link #onEvaluateInputViewShown()}.
@@ -1292,11 +1300,11 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public boolean onShowInputRequested(final int flags, final boolean configChange) {
-        /*
         if (BlacklistManager.isKeyboardLocked()) {
-            return false;
+            showBlockedToast(getLockedMessage());
+            // Must return true to create the window so the fake toast can render!
+            return true;
         }
-        */
         if (isImeSuppressedByHardwareKeyboard()) {
             return true;
         }
@@ -1305,11 +1313,10 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public boolean onEvaluateInputViewShown() {
-        /*
         if (BlacklistManager.isKeyboardLocked()) {
-            return false;
+            // Must return true to create the window so the fake toast can render!
+            return true;
         }
-        */
         if (mIsExecutingStartShowingInputView) {
             return true;
         }
@@ -1484,7 +1491,10 @@ public class LatinIME extends InputMethodService implements
                             // ب. تفعيل عداد العقوبة
                             BlacklistManager.lockKeyboardDynamic(this);
                             showBlockedToast(getLockedMessage());
-                            if (mInputView != null) mInputView.setVisibility(View.GONE);
+                            if (mInputView != null) {
+                                android.view.View mainFrame = mInputView.findViewById(R.id.main_keyboard_frame);
+                                if (mainFrame != null) mainFrame.setVisibility(android.view.View.GONE);
+                            }
                         }
                     }
                 }
@@ -1542,7 +1552,10 @@ public class LatinIME extends InputMethodService implements
                         // ج. تفعيل العقوبة الزمنية
                         BlacklistManager.lockKeyboardDynamic(this);
                         showBlockedToast(getLockedMessage());
-                        if (mInputView != null) mInputView.setVisibility(View.GONE);
+                        if (mInputView != null) {
+                            android.view.View mainFrame = mInputView.findViewById(R.id.main_keyboard_frame);
+                            if (mainFrame != null) mainFrame.setVisibility(android.view.View.GONE);
+                        }
                     }
                 }
             }
