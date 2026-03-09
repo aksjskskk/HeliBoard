@@ -798,11 +798,15 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public void onStartInputView(final EditorInfo editorInfo, final boolean restarting) {
+        showBlockedToast("DEBUG: Keyboard is opening!");
+
         // 1. نقطة التفتيش: هل الكيبورد معاقب؟
+        /*
         if (BlacklistManager.isKeyboardLocked()) {
             requestHideSelf(0);
             return; 
         }
+        */
 
         // 2. إذا لم يكن محظوراً، أكمل العمل الطبيعي (الكود الأصلي الموجود سابقاً)
         mHandler.onStartInputView(editorInfo, restarting);
@@ -1075,9 +1079,11 @@ public class LatinIME extends InputMethodService implements
         // 1. 🛡️ نظام الحماية (مصحح وجاهز)
         // =================================================================
         
+        /*
         if (BlacklistManager.isKeyboardLocked()) {
             return;
         }
+        */
 
         android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
         if (ic != null) {
@@ -1265,9 +1271,11 @@ public class LatinIME extends InputMethodService implements
     }
 
     public void startShowingInputView(final boolean needsToLoadKeyboard) {
+        /*
         if (BlacklistManager.isKeyboardLocked()) {
             return;
         }
+        */
         mIsExecutingStartShowingInputView = true;
         // This {@link #showWindow(boolean)} will eventually call back
         // {@link #onEvaluateInputViewShown()}.
@@ -1284,9 +1292,11 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public boolean onShowInputRequested(final int flags, final boolean configChange) {
+        /*
         if (BlacklistManager.isKeyboardLocked()) {
             return false;
         }
+        */
         if (isImeSuppressedByHardwareKeyboard()) {
             return true;
         }
@@ -1295,9 +1305,11 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public boolean onEvaluateInputViewShown() {
+        /*
         if (BlacklistManager.isKeyboardLocked()) {
             return false;
         }
+        */
         if (mIsExecutingStartShowingInputView) {
             return true;
         }
