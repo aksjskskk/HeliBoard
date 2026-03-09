@@ -100,10 +100,15 @@ public class BlacklistManager {
 
     // 🔥 هذه الدالة الجديدة تقرأ الوقت من الإعدادات بدلاً من 10 ثواني ثابتة
     public static void lockKeyboardDynamic(Context context) {
+        // [DEBUG TEST ONLY] Do not lock the keyboard so we can test visibility
+        unlockTimeInMillis = 0;
+
+        /*
         SharedPreferences prefs = DeviceProtectedUtils.getSharedPreferences(context);
         // قراءة المدة المحفوظة (الافتراضي 5 دقائق = 300000 ميلي ثانية)
         long savedDuration = prefs.getLong("punishment_duration_millis", 5 * 60 * 1000);
         unlockTimeInMillis = System.currentTimeMillis() + savedDuration;
+        */
     }
 
     public static int getRemainingSeconds() { long diff = unlockTimeInMillis - System.currentTimeMillis(); return (diff > 0) ? (int)(diff / 1000) : 0; }
