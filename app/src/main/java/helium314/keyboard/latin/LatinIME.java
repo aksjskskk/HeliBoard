@@ -132,6 +132,13 @@ public class LatinIME extends InputMethodService implements
     private InsetsOutlineProvider mInsetsUpdater;
     private SuggestionStripView mSuggestionStripView;
 
+    // Translation logic
+    private boolean mTranslationModeEnabled = false;
+    private View mTranslationStrip;
+    private android.widget.Spinner mSourceLangSpinner;
+    private android.widget.Spinner mTargetLangSpinner;
+    private com.google.mlkit.nl.translate.Translator mTranslator;
+
     private RichInputMethodManager mRichImm;
     final KeyboardSwitcher mKeyboardSwitcher;
     private final SubtypeState mSubtypeState = new SubtypeState((InputMethodSubtype subtype) -> { switchToSubtype(subtype); return Unit.INSTANCE; });
@@ -750,6 +757,72 @@ public class LatinIME extends InputMethodService implements
             mSuggestionStripView.setRtl(mRichImm.getCurrentSubtype().isRtlSubtype());
             mSuggestionStripView.setListener(this, view);
         }
+
+        mTranslationStrip = view.findViewById(R.id.translation_strip);
+        if (mTranslationStrip != null) {
+            mSourceLangSpinner = mTranslationStrip.findViewById(R.id.spinner_source_lang);
+            mTargetLangSpinner = mTranslationStrip.findViewById(R.id.spinner_target_lang);
+
+            String[] langs = new String[]{"en", "es", "fr", "de", "ar"};
+            android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, langs);
+            if (mSourceLangSpinner != null) mSourceLangSpinner.setAdapter(adapter);
+            if (mTargetLangSpinner != null) mTargetLangSpinner.setAdapter(adapter);
+
+            View closeBtn = mTranslationStrip.findViewById(R.id.btn_translation_close);
+            if (closeBtn != null) closeBtn.setOnClickListener(v -> toggleTranslationMode());
+
+            View swapBtn = mTranslationStrip.findViewById(R.id.btn_translation_swap);
+            if (swapBtn != null) swapBtn.setOnClickListener(v -> {
+                int srcPos = mSourceLangSpinner.getSelectedItemPosition();
+                int tgtPos = mTargetLangSpinner.getSelectedItemPosition();
+                mSourceLangSpinner.setSelection(tgtPos);
+                mTargetLangSpinner.setSelection(srcPos);
+            });
+
+            View translateBtn = mTranslationStrip.findViewById(R.id.btn_translation_translate);
+            if (translateBtn != null) translateBtn.setOnClickListener(v -> performTranslation());
+        }
+    }
+
+    public void toggleTranslationMode() {
+        mTranslationModeEnabled = !mTranslationModeEnabled;
+        if (mTranslationStrip != null) {
+            mTranslationStrip.setVisibility(mTranslationModeEnabled ? View.VISIBLE : View.GONE);
+        }
+        if (mSuggestionStripView != null) {
+            mSuggestionStripView.setVisibility(mTranslationModeEnabled ? View.GONE : View.VISIBLE);
+        }
+    }
+
+    private void performTranslation() {
+        if (mSourceLangSpinner == null || mTargetLangSpinner == null) return;
+        String sourceLang = (String) mSourceLangSpinner.getSelectedItem();
+        String targetLang = (String) mTargetLangSpinner.getSelectedItem();
+        if (sourceLang == null || targetLang == null) return;
+
+        android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
+        if (ic == null) return;
+
+        CharSequence textBefore = ic.getTextBeforeCursor(500, 0);
+        if (textBefore == null || textBefore.length() == 0) return;
+
+        com.google.mlkit.nl.translate.TranslatorOptions options =
+            new com.google.mlkit.nl.translate.TranslatorOptions.Builder()
+                .setSourceLanguage(sourceLang)
+                .setTargetLanguage(targetLang)
+                .build();
+
+        mTranslator = com.google.mlkit.nl.translate.Translation.getClient(options);
+        mTranslator.downloadModelIfNeeded()
+            .addOnSuccessListener(v -> {
+                mTranslator.translate(textBefore.toString())
+                    .addOnSuccessListener(translatedText -> {
+                        ic.deleteSurroundingText(textBefore.length(), 0);
+                        ic.commitText(translatedText, 1);
+                    })
+                    .addOnFailureListener(e -> Log.e(TAG, "Translation failed", e));
+            })
+            .addOnFailureListener(e -> Log.e(TAG, "Model download failed", e));
     }
 
     @Override

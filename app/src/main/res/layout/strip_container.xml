@@ -42,4 +42,9 @@
                 android:layout_weight="1" />
         </LinearLayout>
     </HorizontalScrollView>
+
+    <!-- Translation Strip UI added -->
+    <include layout="@layout/translation_strip"
+             android:visibility="gone" />
+
 </FrameLayout>

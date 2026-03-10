@@ -177,6 +177,7 @@ object KeyCode {
     const val META_LEFT =                 -10048
     const val META_RIGHT =                -10049
     const val INLINE_EMOJI_SEARCH_DONE =  -10051
+    const val TRANSLATE =                 -10052
 
 
     // Intents

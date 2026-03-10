@@ -47,6 +47,7 @@ fun MainSettingsScreen(
     onClickToolbar: () -> Unit,
     onClickGestureTyping: () -> Unit,
     onClickAdvanced: () -> Unit,
+    onClickTranslation: () -> Unit,
     onClickAppearance: () -> Unit,
     onClickLanguage: () -> Unit,
     onClickLayouts: () -> Unit,
@@ -165,6 +166,12 @@ fun MainSettingsScreen(
                     icon = R.drawable.ic_settings_toolbar
                 ) { NextScreenIcon() }
 
+                Preference(
+                    name = "Translation Models",
+                    onClick = onClickTranslation,
+                    icon = R.drawable.ic_settings_advanced
+                ) { NextScreenIcon() }
+
                 if (JniUtils.sHaveGestureLib)
                     Preference(
                         name = stringResource(R.string.settings_screen_gesture),
@@ -212,7 +219,7 @@ private fun PreviewScreen() {
     initPreview(LocalContext.current)
     Theme(previewDark) {
         Surface {
-            MainSettingsScreen({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+            MainSettingsScreen({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
         }
     }
 }

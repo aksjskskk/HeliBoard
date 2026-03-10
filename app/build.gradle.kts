@@ -134,6 +134,10 @@ dependencies {
     implementation("sh.calvin.reorderable:reorderable:2.4.3") // for easier re-ordering
     implementation("com.github.skydoves:colorpicker-compose:1.1.2") // for user-defined colors
 
+    // ML Kit Translation
+    implementation("com.google.mlkit:translate:17.0.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+
     // test
     testImplementation(kotlin("test"))
     testImplementation("junit:junit:4.13.2")
