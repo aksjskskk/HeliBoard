@@ -94,6 +94,13 @@ android {
         resources.excludes.add("META-INF/notice.txt")
         resources.excludes.add("META-INF/ASL2.0")
         resources.excludes.add("META-INF/*.kotlin_module")
+        resources.excludes.add("META-INF/DEPENDENCIES")
+        resources.excludes.add("META-INF/INDEX.LIST")
+        resources.excludes.add("META-INF/io.netty.versions.properties")
+        resources.excludes.add("META-INF/kotlinx-coroutines-core.kotlin_module")
+        resources.excludes.add("META-INF/kotlinx-coroutines-play-services.kotlin_module")
+        resources.excludes.add("META-INF/com.google.dagger_dagger.version")
+        resources.excludes.add("META-INF/com.android.tools/proguard/coroutines.pro")
     }
 
     testOptions {
