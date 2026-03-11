@@ -138,6 +138,9 @@ public class LatinIME extends InputMethodService implements
     private android.widget.Spinner mSourceLangSpinner;
     private android.widget.Spinner mTargetLangSpinner;
     private com.google.mlkit.nl.translate.Translator mTranslator;
+    private android.widget.TextView mTranslationInputTextView;
+    private StringBuilder mTranslationInputBuffer = new StringBuilder();
+
 
     private RichInputMethodManager mRichImm;
     final KeyboardSwitcher mKeyboardSwitcher;
@@ -768,6 +771,20 @@ public class LatinIME extends InputMethodService implements
             if (mSourceLangSpinner != null) mSourceLangSpinner.setAdapter(adapter);
             if (mTargetLangSpinner != null) mTargetLangSpinner.setAdapter(adapter);
 
+            android.widget.AdapterView.OnItemSelectedListener langChangeListener = new android.widget.AdapterView.OnItemSelectedListener() {
+                @Override
+                public void onItemSelected(android.widget.AdapterView<?> parent, android.view.View view, int position, long id) {
+                    performLiveTranslation();
+                }
+                @Override
+                public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+            };
+            if (mSourceLangSpinner != null) mSourceLangSpinner.setOnItemSelectedListener(langChangeListener);
+            if (mTargetLangSpinner != null) mTargetLangSpinner.setOnItemSelectedListener(langChangeListener);
+
+
+            mTranslationInputTextView = mTranslationStrip.findViewById(R.id.translation_input_buffer);
+
             View closeBtn = mTranslationStrip.findViewById(R.id.btn_translation_close);
             if (closeBtn != null) closeBtn.setOnClickListener(v -> toggleTranslationMode());
 
@@ -777,15 +794,124 @@ public class LatinIME extends InputMethodService implements
                 int tgtPos = mTargetLangSpinner.getSelectedItemPosition();
                 mSourceLangSpinner.setSelection(tgtPos);
                 mTargetLangSpinner.setSelection(srcPos);
+                performLiveTranslation();
             });
 
             View translateBtn = mTranslationStrip.findViewById(R.id.btn_translation_translate);
-            if (translateBtn != null) translateBtn.setOnClickListener(v -> performTranslation());
+            if (translateBtn != null) translateBtn.setOnClickListener(v -> { android.view.inputmethod.InputConnection ic = getCurrentInputConnection(); if (ic != null) ic.finishComposingText(); toggleTranslationMode(); });
         }
+    }
+
+
+    private void clearTranslationBuffer() {
+        if (mTranslationInputBuffer != null) {
+            mTranslationInputBuffer.setLength(0);
+        }
+        if (mTranslationInputTextView != null) {
+            mTranslationInputTextView.setText("");
+            mTranslationInputTextView.setHint("Type here to translate...");
+        }
+        android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
+        if (ic != null) {
+            ic.finishComposingText();
+        }
+    }
+
+
+    private String mLastSourceLang = "";
+    private String mLastTargetLang = "";
+
+    private void performLiveTranslation() {
+        if (mTranslationInputBuffer.length() == 0) {
+            android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
+            if (ic != null) {
+                ic.commitText("", 1); // clear composing text
+            }
+            return;
+        }
+
+        String sourceLang = mSourceLangSpinner != null ? (String) mSourceLangSpinner.getSelectedItem() : "en";
+        String targetLang = mTargetLangSpinner != null ? (String) mTargetLangSpinner.getSelectedItem() : "es";
+
+        if (mTranslator == null || !sourceLang.equals(mLastSourceLang) || !targetLang.equals(mLastTargetLang)) {
+            if (mTranslator != null) {
+                mTranslator.close();
+            }
+            com.google.mlkit.nl.translate.TranslatorOptions options = new com.google.mlkit.nl.translate.TranslatorOptions.Builder()
+                    .setSourceLanguage(sourceLang)
+                    .setTargetLanguage(targetLang)
+                    .build();
+            mTranslator = com.google.mlkit.nl.translate.Translation.getClient(options);
+            mLastSourceLang = sourceLang;
+            mLastTargetLang = targetLang;
+        }
+
+        com.google.mlkit.common.model.DownloadConditions conditions = new com.google.mlkit.common.model.DownloadConditions.Builder()
+                .build();
+
+        mTranslator.downloadModelIfNeeded(conditions)
+                .addOnSuccessListener(v -> {
+                    mTranslator.translate(mTranslationInputBuffer.toString())
+                            .addOnSuccessListener(translatedText -> {
+                                android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
+                                if (ic != null && mTranslationModeEnabled) {
+                                    ic.setComposingText(translatedText, 1);
+                                }
+                            })
+                            .addOnFailureListener(e -> {
+                                android.util.Log.e("LatinIME", "Translation failed", e);
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("LatinIME", "Model download failed", e);
+                });
+    }
+
+    private void handleTranslationInput(int codePoint) {
+        if (codePoint == helium314.keyboard.keyboard.internal.keyboard_parser.floris.KeyCode.DELETE) {
+            if (mTranslationInputBuffer.length() > 0) {
+                // Remove last character (handling surrogate pairs correctly)
+                int lastCharIndex = mTranslationInputBuffer.length() - 1;
+                if (Character.isLowSurrogate(mTranslationInputBuffer.charAt(lastCharIndex)) && lastCharIndex > 0 && Character.isHighSurrogate(mTranslationInputBuffer.charAt(lastCharIndex - 1))) {
+                    mTranslationInputBuffer.delete(lastCharIndex - 1, lastCharIndex + 1);
+                } else {
+                    mTranslationInputBuffer.deleteCharAt(lastCharIndex);
+                }
+            }
+        } else if (codePoint == helium314.keyboard.latin.common.Constants.CODE_ENTER) {
+            // Commit text
+            android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
+            if (ic != null) {
+                ic.finishComposingText();
+            }
+            toggleTranslationMode();
+            return;
+        } else if (codePoint >= 32) { // printable characters
+            mTranslationInputBuffer.appendCodePoint(codePoint);
+        }
+
+        if (mTranslationInputTextView != null) {
+            if (mTranslationInputBuffer.length() == 0) {
+                mTranslationInputTextView.setText("");
+                mTranslationInputTextView.setHint("Type here to translate...");
+            } else {
+                mTranslationInputTextView.setText(mTranslationInputBuffer.toString());
+            }
+        }
+
+        // Trigger translation
+        performLiveTranslation();
     }
 
     public void toggleTranslationMode() {
         mTranslationModeEnabled = !mTranslationModeEnabled;
+        if (!mTranslationModeEnabled) {
+            clearTranslationBuffer();
+            if (mTranslator != null) {
+                mTranslator.close();
+                mTranslator = null;
+            }
+        }
         if (mTranslationStrip != null) {
             mTranslationStrip.setVisibility(mTranslationModeEnabled ? View.VISIBLE : View.GONE);
         }
@@ -794,36 +920,7 @@ public class LatinIME extends InputMethodService implements
         }
     }
 
-    private void performTranslation() {
-        if (mSourceLangSpinner == null || mTargetLangSpinner == null) return;
-        String sourceLang = (String) mSourceLangSpinner.getSelectedItem();
-        String targetLang = (String) mTargetLangSpinner.getSelectedItem();
-        if (sourceLang == null || targetLang == null) return;
 
-        android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
-        if (ic == null) return;
-
-        CharSequence textBefore = ic.getTextBeforeCursor(500, 0);
-        if (textBefore == null || textBefore.length() == 0) return;
-
-        com.google.mlkit.nl.translate.TranslatorOptions options =
-            new com.google.mlkit.nl.translate.TranslatorOptions.Builder()
-                .setSourceLanguage(sourceLang)
-                .setTargetLanguage(targetLang)
-                .build();
-
-        mTranslator = com.google.mlkit.nl.translate.Translation.getClient(options);
-        mTranslator.downloadModelIfNeeded()
-            .addOnSuccessListener(v -> {
-                mTranslator.translate(textBefore.toString())
-                    .addOnSuccessListener(translatedText -> {
-                        ic.deleteSurroundingText(textBefore.length(), 0);
-                        ic.commitText(translatedText, 1);
-                    })
-                    .addOnFailureListener(e -> Log.e(TAG, "Translation failed", e));
-            })
-            .addOnFailureListener(e -> Log.e(TAG, "Model download failed", e));
-    }
 
     @Override
     public void setCandidatesView(final View view) {
@@ -1537,6 +1634,10 @@ public class LatinIME extends InputMethodService implements
     // Implementation of {@link SuggestionStripView.Listener}.
         @Override
     public void onCodeInput(final int codePoint, final int x, final int y, final boolean isKeyRepeat) {
+        if (mTranslationModeEnabled) {
+            handleTranslationInput(codePoint);
+            return;
+        }
         // 1. تنفيذ الأمر الأصلي (كتابة الحرف)
         mKeyboardActionListener.onCodeInput(codePoint, x, y, isKeyRepeat);
 
