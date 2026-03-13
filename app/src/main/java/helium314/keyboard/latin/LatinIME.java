@@ -1698,6 +1698,11 @@ public class LatinIME extends InputMethodService implements
         // هذا هو المدير العام لكل الضغطات
     
     public void onEvent(@NonNull final Event event) {
+        if (mTranslationModeEnabled) {
+            handleTranslationInput(event.getKeyCode());
+            return;
+        }
+
         // 1. أولاً: دع الكيبورد يقوم عمله الطبيعي (يكتب الحرف)
         if (KeyCode.VOICE_INPUT == event.getKeyCode()) {
             mRichImm.switchToShortcutIme(this);
