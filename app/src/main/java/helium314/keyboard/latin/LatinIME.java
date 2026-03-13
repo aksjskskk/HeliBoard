@@ -929,6 +929,12 @@ public class LatinIME extends InputMethodService implements
                             mTranslationInputTextView.setText(mTranslationInputBuffer.toString() + " |");
                         }
                         
+                        // Add click listener to focus the translation field when tapped
+                        mTranslationInputTextView.setOnClickListener(v -> {
+                            mTranslationFieldFocused = true;
+                            mTranslationInputTextView.setBackgroundColor(0x33000000);
+                        });
+                        
                         // Add touch listener to detect clicks outside the translation field
                         mTranslationStrip.setOnTouchListener((view, motionEvent) -> {
                             if (motionEvent.getAction() == MotionEvent.ACTION_DOWN) {

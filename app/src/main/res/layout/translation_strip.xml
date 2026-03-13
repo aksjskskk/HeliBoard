@@ -65,6 +65,9 @@
         android:textColor="?android:attr/textColorPrimary"
         android:textSize="18sp"
         android:hint="Type here to translate..."
-        android:singleLine="true" />
+        android:singleLine="true"
+        android:focusable="true"
+        android:focusableInTouchMode="true"
+        android:cursorVisible="true" />
 
 </LinearLayout>
