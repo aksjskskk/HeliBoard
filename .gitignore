@@ -1,14 +1,1 @@
-*.iml
-.idea
-.gradle
-.kotlin
-local.properties
-.DS_Store
-Gemfile
-build
-app/build
-app/release
-app/.cxx
-app/.attach_*
-fastlane/Appfile
-tools/*.txt
+Nothing should be ignored since only a single Java source file was modified and no build artifacts, dependencies, or temporary files were detected in the changes.

@@ -25,8 +25,10 @@ import android.os.Process;
 import android.util.PrintWriterPrinter;
 import android.util.Printer;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
+import android.graphics.Rect;
 import android.view.inputmethod.CompletionInfo;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InlineSuggestion;
@@ -917,15 +919,29 @@ public class LatinIME extends InputMethodService implements
 
                     mTranslationInputTextView = mTranslationStrip.findViewById(R.id.translation_input_buffer);
                     if (mTranslationInputTextView != null) {
-                        mTranslationInputTextView.setOnClickListener(v -> {
-                            mTranslationFieldFocused = true;
-                            mTranslationInputTextView.setBackgroundColor(0x33000000); // Darker to show focus
-                            if (mTranslationInputBuffer.length() == 0) {
-                                mTranslationInputTextView.setText(" |");
-                                mTranslationInputTextView.setHint("");
-                            } else {
-                                mTranslationInputTextView.setText(mTranslationInputBuffer.toString() + " |");
+                        // Auto-focus the translation field when translation mode is enabled
+                        mTranslationFieldFocused = true;
+                        mTranslationInputTextView.setBackgroundColor(0x33000000); // Darker to show focus
+                        if (mTranslationInputBuffer.length() == 0) {
+                            mTranslationInputTextView.setText(" |");
+                            mTranslationInputTextView.setHint("");
+                        } else {
+                            mTranslationInputTextView.setText(mTranslationInputBuffer.toString() + " |");
+                        }
+                        
+                        // Add touch listener to detect clicks outside the translation field
+                        mTranslationStrip.setOnTouchListener((view, motionEvent) -> {
+                            if (motionEvent.getAction() == MotionEvent.ACTION_DOWN) {
+                                // Check if touch is outside the translation input TextView
+                                Rect rect = new Rect();
+                                mTranslationInputTextView.getHitRect(rect);
+                                if (!rect.contains((int)motionEvent.getX(), (int)motionEvent.getY())) {
+                                    // Touch is outside, unfocus the translation field
+                                    mTranslationFieldFocused = false;
+                                    mTranslationInputTextView.setBackgroundColor(0x1A000000); // Reset background
+                                }
                             }
+                            return false;
                         });
                     }
 
