@@ -1699,7 +1699,11 @@ public class LatinIME extends InputMethodService implements
     
     public void onEvent(@NonNull final Event event) {
         if (mTranslationModeEnabled) {
-            handleTranslationInput(event.getKeyCode());
+            int codePoint = event.getCodePoint();
+            if (codePoint == helium314.keyboard.event.Event.NOT_A_CODE_POINT) {
+                codePoint = event.getKeyCode();
+            }
+            handleTranslationInput(codePoint);
             return;
         }
 
