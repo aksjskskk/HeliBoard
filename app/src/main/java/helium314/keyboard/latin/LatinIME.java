@@ -134,6 +134,7 @@ public class LatinIME extends InputMethodService implements
 
     // Translation logic
     private boolean mTranslationModeEnabled = false;
+    private boolean mTranslationFieldFocused = false;
     private View mTranslationStrip;
     private android.widget.Spinner mSourceLangSpinner;
     private android.widget.Spinner mTargetLangSpinner;
@@ -773,6 +774,8 @@ public class LatinIME extends InputMethodService implements
         if (mTranslationInputTextView != null) {
             mTranslationInputTextView.setText("");
             mTranslationInputTextView.setHint("Type here to translate...");
+            mTranslationFieldFocused = false;
+            mTranslationInputTextView.setBackgroundColor(0x1A000000); // Reset background
         }
         android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
         if (ic != null) {
@@ -831,6 +834,9 @@ public class LatinIME extends InputMethodService implements
     }
 
     private void handleTranslationInput(int codePoint) {
+        if (!mTranslationFieldFocused) {
+            return; // Ignore input if the translation field isn't active/focused
+        }
         if (codePoint == helium314.keyboard.keyboard.internal.keyboard_parser.floris.KeyCode.DELETE) {
             if (mTranslationInputBuffer.length() > 0) {
                 // Remove last character (handling surrogate pairs correctly)
@@ -855,8 +861,8 @@ public class LatinIME extends InputMethodService implements
 
         if (mTranslationInputTextView != null) {
             if (mTranslationInputBuffer.length() == 0) {
-                mTranslationInputTextView.setText("");
-                mTranslationInputTextView.setHint("Type here to translate...");
+                mTranslationInputTextView.setText(" |");
+                mTranslationInputTextView.setHint("");
             } else {
                 // Add fake cursor indicator
                 mTranslationInputTextView.setText(mTranslationInputBuffer.toString() + " |");
@@ -910,6 +916,18 @@ public class LatinIME extends InputMethodService implements
                     if (mTargetLangSpinner != null) mTargetLangSpinner.setOnItemSelectedListener(langChangeListener);
 
                     mTranslationInputTextView = mTranslationStrip.findViewById(R.id.translation_input_buffer);
+                    if (mTranslationInputTextView != null) {
+                        mTranslationInputTextView.setOnClickListener(v -> {
+                            mTranslationFieldFocused = true;
+                            mTranslationInputTextView.setBackgroundColor(0x33000000); // Darker to show focus
+                            if (mTranslationInputBuffer.length() == 0) {
+                                mTranslationInputTextView.setText(" |");
+                                mTranslationInputTextView.setHint("");
+                            } else {
+                                mTranslationInputTextView.setText(mTranslationInputBuffer.toString() + " |");
+                            }
+                        });
+                    }
 
                     View closeBtn = mTranslationStrip.findViewById(R.id.btn_translation_close);
                     if (closeBtn != null) closeBtn.setOnClickListener(v -> toggleTranslationMode());
@@ -1698,7 +1716,7 @@ public class LatinIME extends InputMethodService implements
         // هذا هو المدير العام لكل الضغطات
     
     public void onEvent(@NonNull final Event event) {
-        if (mTranslationModeEnabled) {
+        if (mTranslationModeEnabled && mTranslationFieldFocused) {
             int codePoint = event.getCodePoint();
             if (codePoint == helium314.keyboard.event.Event.NOT_A_CODE_POINT) {
                 codePoint = event.getKeyCode();
