@@ -81,18 +81,6 @@
             android:label="Block Words Manager"
             android:theme="@android:style/Theme.DeviceDefault.Light" />
 
-        <activity
-            android:name=".PunishmentSettingsActivity"
-            android:label="Blocking Preferences"
-            android:theme="@android:style/Theme.DeviceDefault.Light" />
-
-        <activity
-            android:name=".PunishmentActivity"
-            android:label="Device Locked"
-            android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
-            android:launchMode="singleInstance"
-            android:excludeFromRecents="true"
-            android:screenOrientation="portrait"/>
         <receiver android:name="SystemBroadcastReceiver"
                 android:exported="true">
             <intent-filter>

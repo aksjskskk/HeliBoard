@@ -20,16 +20,24 @@ import androidx.compose.ui.tooling.preview.Preview
 import helium314.keyboard.latin.R
 // ✅ استدعاء الملفات الجديدة
 import helium314.keyboard.latin.UserBannedWordsActivity 
-import helium314.keyboard.latin.PunishmentSettingsActivity
 import helium314.keyboard.latin.utils.JniUtils
 import helium314.keyboard.latin.utils.SubtypeLocaleUtils.displayName
 import helium314.keyboard.latin.utils.SubtypeSettings
+import helium314.keyboard.latin.utils.prefs
 import helium314.keyboard.settings.NextScreenIcon
 import helium314.keyboard.settings.SearchSettingsScreen
 import helium314.keyboard.settings.Theme
+import helium314.keyboard.settings.dialogs.ListPickerDialog
+import helium314.keyboard.settings.dialogs.TextInputDialog
 import helium314.keyboard.settings.initPreview
 import helium314.keyboard.settings.preferences.Preference
 import helium314.keyboard.settings.previewDark
+import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.core.content.edit
 
 @Composable
 fun MainSettingsScreen(
@@ -39,6 +47,7 @@ fun MainSettingsScreen(
     onClickToolbar: () -> Unit,
     onClickGestureTyping: () -> Unit,
     onClickAdvanced: () -> Unit,
+    onClickTranslation: () -> Unit,
     onClickAppearance: () -> Unit,
     onClickLanguage: () -> Unit,
     onClickLayouts: () -> Unit,
@@ -84,17 +93,65 @@ fun MainSettingsScreen(
                 ) { NextScreenIcon() }
 
                 // ========================================================
-                // ⚙️ 2. Blocking Preferences (زر إعدادات العقاب)
+                // ⏱️ 2. Time Blocking (Ban Duration)
                 // ========================================================
+                var showBanDurationDialog by rememberSaveable { mutableStateOf(false) }
+                val prefs = context.prefs()
+                val currentBanDuration = prefs.getLong("punishment_duration_millis", 300000L) // Default 5 mins
+
+                val banOptions = listOf(
+                    "2 minutes" to 120000L,
+                    "3 minutes" to 180000L,
+                    "5 minutes" to 300000L
+                )
+                val selectedBanOption = banOptions.firstOrNull { it.second == currentBanDuration } ?: banOptions[2]
+
                 Preference(
-                    name = "Blocking Preferences",
-                    description = "Set punishment timer & custom screen media",
-                    onClick = {
-                        val intent = Intent(context, PunishmentSettingsActivity::class.java)
-                        context.startActivity(intent)
-                    },
-                    icon = android.R.drawable.ic_menu_manage // أيقونة الإعدادات
-                ) { NextScreenIcon() }
+                    name = "Time Blocking",
+                    description = selectedBanOption.first,
+                    onClick = { showBanDurationDialog = true },
+                    icon = android.R.drawable.ic_menu_recent_history
+                )
+
+                if (showBanDurationDialog) {
+                    ListPickerDialog(
+                        onDismissRequest = { showBanDurationDialog = false },
+                        items = banOptions,
+                        onItemSelected = {
+                            prefs.edit { putLong("punishment_duration_millis", it.second) }
+                            showBanDurationDialog = false
+                        },
+                        selectedItem = selectedBanOption,
+                        title = { Text("Select Ban Duration") },
+                        getItemName = { it.first }
+                    )
+                }
+
+                // ========================================================
+                // 💬 3. Toast Message (Custom Ban Message)
+                // ========================================================
+                var showToastMessageDialog by rememberSaveable { mutableStateOf(false) }
+                val defaultToastMsg = "The keyboard is blocked."
+                val currentToastMsg = prefs.getString("custom_blocked_toast_message", defaultToastMsg) ?: defaultToastMsg
+
+                Preference(
+                    name = "Toast Message",
+                    description = currentToastMsg,
+                    onClick = { showToastMessageDialog = true },
+                    icon = android.R.drawable.ic_dialog_info
+                )
+
+                if (showToastMessageDialog) {
+                    TextInputDialog(
+                        onDismissRequest = { showToastMessageDialog = false },
+                        onConfirmed = { text ->
+                            prefs.edit { putString("custom_blocked_toast_message", text.ifBlank { defaultToastMsg }) }
+                            showToastMessageDialog = false
+                        },
+                        initialText = currentToastMsg,
+                        title = { Text("Toast Message") }
+                    )
+                }
                 // ========================================================
 
                 Preference(
@@ -107,6 +164,12 @@ fun MainSettingsScreen(
                     name = stringResource(R.string.settings_screen_toolbar),
                     onClick = onClickToolbar,
                     icon = R.drawable.ic_settings_toolbar
+                ) { NextScreenIcon() }
+
+                Preference(
+                    name = "Translation Models",
+                    onClick = onClickTranslation,
+                    icon = R.drawable.ic_settings_advanced
                 ) { NextScreenIcon() }
 
                 if (JniUtils.sHaveGestureLib)
@@ -156,7 +219,7 @@ private fun PreviewScreen() {
     initPreview(LocalContext.current)
     Theme(previewDark) {
         Surface {
-            MainSettingsScreen({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+            MainSettingsScreen({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
         }
     }
 }

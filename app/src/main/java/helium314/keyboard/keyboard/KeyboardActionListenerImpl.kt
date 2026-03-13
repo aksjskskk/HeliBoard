@@ -103,6 +103,11 @@ class KeyboardActionListenerImpl(private val latinIME: LatinIME, private val inp
         when (primaryCode) {
             KeyCode.TOGGLE_AUTOCORRECT -> return settings.toggleAutoCorrect()
             KeyCode.TOGGLE_INCOGNITO_MODE -> return settings.toggleAlwaysIncognitoMode()
+            KeyCode.TRANSLATE -> {
+                // latinIME.toggleTranslationMode() is no longer unresolved
+                latinIME.toggleTranslationMode()
+                return
+            }
         }
         val mkv = keyboardSwitcher.mainKeyboardView
 

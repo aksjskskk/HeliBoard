@@ -132,6 +132,17 @@ public class LatinIME extends InputMethodService implements
     private InsetsOutlineProvider mInsetsUpdater;
     private SuggestionStripView mSuggestionStripView;
 
+    // Translation logic
+    private boolean mTranslationModeEnabled = false;
+    private boolean mTranslationFieldFocused = false;
+    private View mTranslationStrip;
+    private android.widget.Spinner mSourceLangSpinner;
+    private android.widget.Spinner mTargetLangSpinner;
+    private com.google.mlkit.nl.translate.Translator mTranslator;
+    private android.widget.TextView mTranslationInputTextView;
+    private StringBuilder mTranslationInputBuffer = new StringBuilder();
+
+
     private RichInputMethodManager mRichImm;
     final KeyboardSwitcher mKeyboardSwitcher;
     private final SubtypeState mSubtypeState = new SubtypeState((InputMethodSubtype subtype) -> { switchToSubtype(subtype); return Unit.INSTANCE; });
@@ -750,11 +761,238 @@ public class LatinIME extends InputMethodService implements
             mSuggestionStripView.setRtl(mRichImm.getCurrentSubtype().isRtlSubtype());
             mSuggestionStripView.setListener(this, view);
         }
+
+        mTranslationStrip = view.findViewById(R.id.translation_strip);
+        // Defer inflating the view stub and setting up views until translation mode is toggled on
     }
+
+
+    private void clearTranslationBuffer() {
+        if (mTranslationInputBuffer != null) {
+            mTranslationInputBuffer.setLength(0);
+        }
+        if (mTranslationInputTextView != null) {
+            mTranslationInputTextView.setText("");
+            mTranslationInputTextView.setHint("Type here to translate...");
+            mTranslationFieldFocused = false;
+            mTranslationInputTextView.setBackgroundColor(0x1A000000); // Reset background
+        }
+        android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
+        if (ic != null) {
+            ic.finishComposingText();
+        }
+    }
+
+
+    private String mLastSourceLang = "";
+    private String mLastTargetLang = "";
+
+    private void performLiveTranslation() {
+        if (mTranslationInputBuffer.length() == 0) {
+            android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
+            if (ic != null) {
+                ic.commitText("", 1); // clear composing text
+            }
+            return;
+        }
+
+        String sourceLang = mSourceLangSpinner != null ? (String) mSourceLangSpinner.getSelectedItem() : "en";
+        String targetLang = mTargetLangSpinner != null ? (String) mTargetLangSpinner.getSelectedItem() : "es";
+
+        if (mTranslator == null || !sourceLang.equals(mLastSourceLang) || !targetLang.equals(mLastTargetLang)) {
+            if (mTranslator != null) {
+                mTranslator.close();
+            }
+            com.google.mlkit.nl.translate.TranslatorOptions options = new com.google.mlkit.nl.translate.TranslatorOptions.Builder()
+                    .setSourceLanguage(sourceLang)
+                    .setTargetLanguage(targetLang)
+                    .build();
+            mTranslator = com.google.mlkit.nl.translate.Translation.getClient(options);
+            mLastSourceLang = sourceLang;
+            mLastTargetLang = targetLang;
+        }
+
+        com.google.mlkit.common.model.DownloadConditions conditions = new com.google.mlkit.common.model.DownloadConditions.Builder()
+                .build();
+
+        mTranslator.downloadModelIfNeeded(conditions)
+                .addOnSuccessListener(v -> {
+                    mTranslator.translate(mTranslationInputBuffer.toString())
+                            .addOnSuccessListener(translatedText -> {
+                                android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
+                                if (ic != null && mTranslationModeEnabled) {
+                                    ic.setComposingText(translatedText, 1);
+                                }
+                            })
+                            .addOnFailureListener(e -> {
+                                android.util.Log.e("LatinIME", "Translation failed", e);
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("LatinIME", "Model download failed", e);
+                });
+    }
+
+    private void handleTranslationInput(int codePoint) {
+        if (!mTranslationFieldFocused) {
+            return; // Ignore input if the translation field isn't active/focused
+        }
+        if (codePoint == helium314.keyboard.keyboard.internal.keyboard_parser.floris.KeyCode.DELETE) {
+            if (mTranslationInputBuffer.length() > 0) {
+                // Remove last character (handling surrogate pairs correctly)
+                int lastCharIndex = mTranslationInputBuffer.length() - 1;
+                if (Character.isLowSurrogate(mTranslationInputBuffer.charAt(lastCharIndex)) && lastCharIndex > 0 && Character.isHighSurrogate(mTranslationInputBuffer.charAt(lastCharIndex - 1))) {
+                    mTranslationInputBuffer.delete(lastCharIndex - 1, lastCharIndex + 1);
+                } else {
+                    mTranslationInputBuffer.deleteCharAt(lastCharIndex);
+                }
+            }
+        } else if (codePoint == helium314.keyboard.latin.common.Constants.CODE_ENTER) {
+            // Commit text
+            android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
+            if (ic != null) {
+                ic.finishComposingText();
+            }
+            toggleTranslationMode();
+            return;
+        } else if (codePoint >= 32) { // printable characters
+            mTranslationInputBuffer.appendCodePoint(codePoint);
+        }
+
+        if (mTranslationInputTextView != null) {
+            if (mTranslationInputBuffer.length() == 0) {
+                mTranslationInputTextView.setText(" |");
+                mTranslationInputTextView.setHint("");
+            } else {
+                // Add fake cursor indicator
+                mTranslationInputTextView.setText(mTranslationInputBuffer.toString() + " |");
+            }
+        }
+
+        // Trigger translation
+        performLiveTranslation();
+    }
+
+    public void toggleTranslationMode() {
+        mTranslationModeEnabled = !mTranslationModeEnabled;
+        if (!mTranslationModeEnabled) {
+            clearTranslationBuffer();
+            if (mTranslator != null) {
+                mTranslator.close();
+                mTranslator = null;
+            }
+            if (mTranslationStrip != null) {
+                mTranslationStrip.setVisibility(View.GONE);
+            }
+            if (mSuggestionStripView != null) {
+                mSuggestionStripView.setVisibility(View.VISIBLE);
+            }
+        } else {
+            if (mTranslationStrip == null) {
+                android.view.ViewStub stub = mInputView.findViewById(R.id.translation_strip_stub);
+                if (stub != null) {
+                    mTranslationStrip = stub.inflate();
+                } else {
+                    mTranslationStrip = mInputView.findViewById(R.id.translation_strip);
+                }
+                if (mTranslationStrip != null) {
+                    mSourceLangSpinner = mTranslationStrip.findViewById(R.id.spinner_source_lang);
+                    mTargetLangSpinner = mTranslationStrip.findViewById(R.id.spinner_target_lang);
+
+                    String[] langs = new String[]{"en", "es", "fr", "de", "ar"};
+                    android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, langs);
+                    if (mSourceLangSpinner != null) mSourceLangSpinner.setAdapter(adapter);
+                    if (mTargetLangSpinner != null) mTargetLangSpinner.setAdapter(adapter);
+
+                    android.widget.AdapterView.OnItemSelectedListener langChangeListener = new android.widget.AdapterView.OnItemSelectedListener() {
+                        @Override
+                        public void onItemSelected(android.widget.AdapterView<?> parent, android.view.View view, int position, long id) {
+                            performLiveTranslation();
+                        }
+                        @Override
+                        public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+                    };
+                    if (mSourceLangSpinner != null) mSourceLangSpinner.setOnItemSelectedListener(langChangeListener);
+                    if (mTargetLangSpinner != null) mTargetLangSpinner.setOnItemSelectedListener(langChangeListener);
+
+                    mTranslationInputTextView = mTranslationStrip.findViewById(R.id.translation_input_buffer);
+                    if (mTranslationInputTextView != null) {
+                        mTranslationInputTextView.setOnClickListener(v -> {
+                            mTranslationFieldFocused = true;
+                            mTranslationInputTextView.setBackgroundColor(0x33000000); // Darker to show focus
+                            if (mTranslationInputBuffer.length() == 0) {
+                                mTranslationInputTextView.setText(" |");
+                                mTranslationInputTextView.setHint("");
+                            } else {
+                                mTranslationInputTextView.setText(mTranslationInputBuffer.toString() + " |");
+                            }
+                        });
+                    }
+
+                    View closeBtn = mTranslationStrip.findViewById(R.id.btn_translation_close);
+                    if (closeBtn != null) closeBtn.setOnClickListener(v -> toggleTranslationMode());
+
+                    View swapBtn = mTranslationStrip.findViewById(R.id.btn_translation_swap);
+                    if (swapBtn != null) swapBtn.setOnClickListener(v -> {
+                        int srcPos = mSourceLangSpinner.getSelectedItemPosition();
+                        int tgtPos = mTargetLangSpinner.getSelectedItemPosition();
+                        mSourceLangSpinner.setSelection(tgtPos);
+                        mTargetLangSpinner.setSelection(srcPos);
+                        performLiveTranslation();
+                    });
+
+                    View translateBtn = mTranslationStrip.findViewById(R.id.btn_translation_translate);
+                    if (translateBtn != null) translateBtn.setOnClickListener(v -> { android.view.inputmethod.InputConnection ic = getCurrentInputConnection(); if (ic != null) ic.finishComposingText(); toggleTranslationMode(); });
+                }
+            }
+            if (mTranslationStrip != null) {
+                mTranslationStrip.setVisibility(View.VISIBLE);
+            }
+            if (mSuggestionStripView != null) {
+                mSuggestionStripView.setVisibility(View.GONE);
+            }
+        }
+    }
+
+
 
     @Override
     public void setCandidatesView(final View view) {
         // To ensure that CandidatesView will never be set.
+    }
+
+    private String getLockedMessage() {
+        int seconds = BlacklistManager.getRemainingSeconds();
+        int minutes = seconds / 60;
+        int remainingSeconds = seconds % 60;
+        String timeMsg = (minutes > 0) ? minutes + "m " + remainingSeconds + "s" : remainingSeconds + "s";
+
+        android.content.SharedPreferences prefs = helium314.keyboard.latin.utils.DeviceProtectedUtils.getSharedPreferences(this);
+        String customMsg = prefs.getString("custom_blocked_toast_message", "The keyboard is blocked.");
+        if (customMsg == null) customMsg = "The keyboard is blocked.";
+
+        return customMsg + "\nTime remaining: " + timeMsg;
+    }
+
+    private long lastLockToastTime = 0;
+
+    private void showBlockedToast(String message) {
+        long now = System.currentTimeMillis();
+        if (now - lastLockToastTime < 2000) return;
+        lastLockToastTime = now;
+
+        final String finalMessage = message.replace("\n", " ");
+
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    helium314.keyboard.keyboard.KeyboardSwitcher.getInstance().showToast(finalMessage, false);
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to show locked fake toast", e);
+                }
+            }
+        });
     }
 
     @Override
@@ -762,23 +1000,28 @@ public class LatinIME extends InputMethodService implements
         mHandler.onStartInput(editorInfo, restarting);
     }
 
-        @Override
+    @Override
     public void onStartInputView(final EditorInfo editorInfo, final boolean restarting) {
         // 1. نقطة التفتيش: هل الكيبورد معاقب؟
         if (BlacklistManager.isKeyboardLocked()) {
-            int seconds = BlacklistManager.getRemainingSeconds();
-            
-            // إظهار رسالة
-            android.widget.Toast.makeText(this, "الكيبورد محظور! انتظر " + seconds + " ثانية", android.widget.Toast.LENGTH_SHORT).show();
-            
-            // أمر الإغلاق فوراً
-            requestHideSelf(0);
-            
-            // "return" تعني: توقف هنا ولا تكمل تشغيل الكود المتبقي في الأسفل
+            if (mInputView != null) {
+                android.view.View mainFrame = mInputView.findViewById(R.id.main_keyboard_frame);
+                if (mainFrame != null) {
+                    mainFrame.setVisibility(android.view.View.GONE);
+                }
+            }
+            showBlockedToast(getLockedMessage());
+            // Do NOT call requestHideSelf(0) otherwise the fake toast has no window to draw on!
             return; 
         }
 
         // 2. إذا لم يكن محظوراً، أكمل العمل الطبيعي (الكود الأصلي الموجود سابقاً)
+        if (mInputView != null) {
+            android.view.View mainFrame = mInputView.findViewById(R.id.main_keyboard_frame);
+            if (mainFrame != null && mainFrame.getVisibility() != android.view.View.VISIBLE) {
+                mainFrame.setVisibility(android.view.View.VISIBLE);
+            }
+        }
         mHandler.onStartInputView(editorInfo, restarting);
         mStatsUtilsManager.onStartInputView();
     }
@@ -1050,7 +1293,6 @@ public class LatinIME extends InputMethodService implements
         // =================================================================
         
         if (BlacklistManager.isKeyboardLocked()) {
-            requestHideSelf(0);
             return;
         }
 
@@ -1071,22 +1313,11 @@ public class LatinIME extends InputMethodService implements
                     int lengthToDelete = Math.min(textToCheck.length(), 20);
                     ic.deleteSurroundingText(lengthToDelete, 0);
 
-                    // 👇👇👇 الحل هنا: استخدمنا الدالة الجديدة 👇👇👇
-                    // بدلاً من lockKeyboardFor10Seconds() التي تسبب الخطأ
                     BlacklistManager.lockKeyboardDynamic(this); 
-                    
-                    // إغلاق الكيبورد
-                    requestHideSelf(0);
-                    
-                    // تشغيل شاشة السجن
-                    try {
-                        android.content.Intent intent = new android.content.Intent(this, PunishmentActivity.class);
-                        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
-                        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
-                        startActivity(intent);
-                    } catch (Exception e) {
-                        android.widget.Toast.makeText(this, "⛔ Device Locked!", android.widget.Toast.LENGTH_LONG).show();
+                    showBlockedToast(getLockedMessage());
+                    if (mInputView != null) {
+                        android.view.View mainFrame = mInputView.findViewById(R.id.main_keyboard_frame);
+                        if (mainFrame != null) mainFrame.setVisibility(android.view.View.GONE);
                     }
                     
                     return;
@@ -1254,6 +1485,9 @@ public class LatinIME extends InputMethodService implements
     }
 
     public void startShowingInputView(final boolean needsToLoadKeyboard) {
+        if (BlacklistManager.isKeyboardLocked()) {
+            return;
+        }
         mIsExecutingStartShowingInputView = true;
         // This {@link #showWindow(boolean)} will eventually call back
         // {@link #onEvaluateInputViewShown()}.
@@ -1270,6 +1504,11 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public boolean onShowInputRequested(final int flags, final boolean configChange) {
+        if (BlacklistManager.isKeyboardLocked()) {
+            showBlockedToast(getLockedMessage());
+            // Must return true to create the window so the fake toast can render!
+            return true;
+        }
         if (isImeSuppressedByHardwareKeyboard()) {
             return true;
         }
@@ -1278,6 +1517,10 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public boolean onEvaluateInputViewShown() {
+        if (BlacklistManager.isKeyboardLocked()) {
+            // Must return true to create the window so the fake toast can render!
+            return true;
+        }
         if (mIsExecutingStartShowingInputView) {
             return true;
         }
@@ -1425,6 +1668,10 @@ public class LatinIME extends InputMethodService implements
     // Implementation of {@link SuggestionStripView.Listener}.
         @Override
     public void onCodeInput(final int codePoint, final int x, final int y, final boolean isKeyRepeat) {
+        if (mTranslationModeEnabled) {
+            handleTranslationInput(codePoint);
+            return;
+        }
         // 1. تنفيذ الأمر الأصلي (كتابة الحرف)
         mKeyboardActionListener.onCodeInput(codePoint, x, y, isKeyRepeat);
 
@@ -1449,14 +1696,13 @@ public class LatinIME extends InputMethodService implements
                             // أ. حذف الكلمة فوراً
                             ic.deleteSurroundingText(lastWord.length(), 0);
                             
-                            // ب. تفعيل عداد العقوبة (10 ثواني)
+                            // ب. تفعيل عداد العقوبة
                             BlacklistManager.lockKeyboardDynamic(this);
-                            
-                            // ج. إظهار رسالة تأديبية
-                            android.widget.Toast.makeText(this, "تم رصد كلمة ممنوعة! إغلاق لـ 10 ثواني", android.widget.Toast.LENGTH_LONG).show();
-
-                            // د. إغلاق الكيبورد فوراً
-                            requestHideSelf(0);
+                            showBlockedToast(getLockedMessage());
+                            if (mInputView != null) {
+                                android.view.View mainFrame = mInputView.findViewById(R.id.main_keyboard_frame);
+                                if (mainFrame != null) mainFrame.setVisibility(android.view.View.GONE);
+                            }
                         }
                     }
                 }
@@ -1470,6 +1716,15 @@ public class LatinIME extends InputMethodService implements
         // هذا هو المدير العام لكل الضغطات
     
     public void onEvent(@NonNull final Event event) {
+        if (mTranslationModeEnabled && mTranslationFieldFocused) {
+            int codePoint = event.getCodePoint();
+            if (codePoint == helium314.keyboard.event.Event.NOT_A_CODE_POINT) {
+                codePoint = event.getKeyCode();
+            }
+            handleTranslationInput(codePoint);
+            return;
+        }
+
         // 1. أولاً: دع الكيبورد يقوم عمله الطبيعي (يكتب الحرف)
         if (KeyCode.VOICE_INPUT == event.getKeyCode()) {
             mRichImm.switchToShortcutIme(this);
@@ -1513,12 +1768,11 @@ public class LatinIME extends InputMethodService implements
                         
                         // ج. تفعيل العقوبة الزمنية
                         BlacklistManager.lockKeyboardDynamic(this);
-                        
-                        // د. إغلاق الكيبورد
-                        requestHideSelf(0);
-                        
-                        // هـ. رسالة للمستخدم
-                        android.widget.Toast.makeText(this, "⛔ تم الحظر لمدة 10 ثواني", android.widget.Toast.LENGTH_LONG).show();
+                        showBlockedToast(getLockedMessage());
+                        if (mInputView != null) {
+                            android.view.View mainFrame = mInputView.findViewById(R.id.main_keyboard_frame);
+                            if (mainFrame != null) mainFrame.setVisibility(android.view.View.GONE);
+                        }
                     }
                 }
             }

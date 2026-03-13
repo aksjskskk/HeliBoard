@@ -85,6 +85,29 @@ android {
             // shrinks APK by 3 MB, zipped size unchanged
             useLegacyPackaging = true
         }
+        resources.excludes.add("META-INF/DEPENDENCIES")
+        resources.excludes.add("META-INF/LICENSE")
+        resources.excludes.add("META-INF/LICENSE.txt")
+        resources.excludes.add("META-INF/license.txt")
+        resources.excludes.add("META-INF/NOTICE")
+        resources.excludes.add("META-INF/NOTICE.txt")
+        resources.excludes.add("META-INF/notice.txt")
+        resources.excludes.add("META-INF/ASL2.0")
+        resources.excludes.add("META-INF/*.kotlin_module")
+        resources.excludes.add("META-INF/INDEX.LIST")
+        resources.excludes.add("META-INF/io.netty.versions.properties")
+        resources.excludes.add("META-INF/kotlinx-coroutines-core.kotlin_module")
+        resources.excludes.add("META-INF/kotlinx-coroutines-play-services.kotlin_module")
+        resources.excludes.add("META-INF/com.google.dagger_dagger.version")
+        resources.excludes.add("META-INF/com.android.tools/proguard/coroutines.pro")
+        resources.excludes.add("META-INF/DEPENDENCIES.txt")
+        resources.excludes.add("META-INF/dependencies.txt")
+        resources.excludes.add("META-INF/LGPL2.1")
+        resources.excludes.add("META-INF/AL2.0")
+        resources.excludes.add("META-INF/com.android.tools/**")
+        resources.excludes.add("META-INF/gradle/**")
+        resources.excludes.add("META-INF/versions/**")
+
     }
 
     testOptions {
@@ -133,6 +156,10 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.9.3")
     implementation("sh.calvin.reorderable:reorderable:2.4.3") // for easier re-ordering
     implementation("com.github.skydoves:colorpicker-compose:1.1.2") // for user-defined colors
+
+    // ML Kit Translation
+    implementation("com.google.mlkit:translate:17.0.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 
     // test
     testImplementation(kotlin("test"))
