@@ -762,44 +762,7 @@ public class LatinIME extends InputMethodService implements
         }
 
         mTranslationStrip = view.findViewById(R.id.translation_strip);
-        if (mTranslationStrip != null) {
-            mSourceLangSpinner = mTranslationStrip.findViewById(R.id.spinner_source_lang);
-            mTargetLangSpinner = mTranslationStrip.findViewById(R.id.spinner_target_lang);
-
-            String[] langs = new String[]{"en", "es", "fr", "de", "ar"};
-            android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, langs);
-            if (mSourceLangSpinner != null) mSourceLangSpinner.setAdapter(adapter);
-            if (mTargetLangSpinner != null) mTargetLangSpinner.setAdapter(adapter);
-
-            android.widget.AdapterView.OnItemSelectedListener langChangeListener = new android.widget.AdapterView.OnItemSelectedListener() {
-                @Override
-                public void onItemSelected(android.widget.AdapterView<?> parent, android.view.View view, int position, long id) {
-                    performLiveTranslation();
-                }
-                @Override
-                public void onNothingSelected(android.widget.AdapterView<?> parent) {}
-            };
-            if (mSourceLangSpinner != null) mSourceLangSpinner.setOnItemSelectedListener(langChangeListener);
-            if (mTargetLangSpinner != null) mTargetLangSpinner.setOnItemSelectedListener(langChangeListener);
-
-
-            mTranslationInputTextView = mTranslationStrip.findViewById(R.id.translation_input_buffer);
-
-            View closeBtn = mTranslationStrip.findViewById(R.id.btn_translation_close);
-            if (closeBtn != null) closeBtn.setOnClickListener(v -> toggleTranslationMode());
-
-            View swapBtn = mTranslationStrip.findViewById(R.id.btn_translation_swap);
-            if (swapBtn != null) swapBtn.setOnClickListener(v -> {
-                int srcPos = mSourceLangSpinner.getSelectedItemPosition();
-                int tgtPos = mTargetLangSpinner.getSelectedItemPosition();
-                mSourceLangSpinner.setSelection(tgtPos);
-                mTargetLangSpinner.setSelection(srcPos);
-                performLiveTranslation();
-            });
-
-            View translateBtn = mTranslationStrip.findViewById(R.id.btn_translation_translate);
-            if (translateBtn != null) translateBtn.setOnClickListener(v -> { android.view.inputmethod.InputConnection ic = getCurrentInputConnection(); if (ic != null) ic.finishComposingText(); toggleTranslationMode(); });
-        }
+        // Defer inflating the view stub and setting up views until translation mode is toggled on
     }
 
 
@@ -895,7 +858,8 @@ public class LatinIME extends InputMethodService implements
                 mTranslationInputTextView.setText("");
                 mTranslationInputTextView.setHint("Type here to translate...");
             } else {
-                mTranslationInputTextView.setText(mTranslationInputBuffer.toString());
+                // Add fake cursor indicator
+                mTranslationInputTextView.setText(mTranslationInputBuffer.toString() + " |");
             }
         }
 
@@ -911,12 +875,64 @@ public class LatinIME extends InputMethodService implements
                 mTranslator.close();
                 mTranslator = null;
             }
-        }
-        if (mTranslationStrip != null) {
-            mTranslationStrip.setVisibility(mTranslationModeEnabled ? View.VISIBLE : View.GONE);
-        }
-        if (mSuggestionStripView != null) {
-            mSuggestionStripView.setVisibility(mTranslationModeEnabled ? View.GONE : View.VISIBLE);
+            if (mTranslationStrip != null) {
+                mTranslationStrip.setVisibility(View.GONE);
+            }
+            if (mSuggestionStripView != null) {
+                mSuggestionStripView.setVisibility(View.VISIBLE);
+            }
+        } else {
+            if (mTranslationStrip == null) {
+                android.view.ViewStub stub = mInputView.findViewById(R.id.translation_strip_stub);
+                if (stub != null) {
+                    mTranslationStrip = stub.inflate();
+                } else {
+                    mTranslationStrip = mInputView.findViewById(R.id.translation_strip);
+                }
+                if (mTranslationStrip != null) {
+                    mSourceLangSpinner = mTranslationStrip.findViewById(R.id.spinner_source_lang);
+                    mTargetLangSpinner = mTranslationStrip.findViewById(R.id.spinner_target_lang);
+
+                    String[] langs = new String[]{"en", "es", "fr", "de", "ar"};
+                    android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, langs);
+                    if (mSourceLangSpinner != null) mSourceLangSpinner.setAdapter(adapter);
+                    if (mTargetLangSpinner != null) mTargetLangSpinner.setAdapter(adapter);
+
+                    android.widget.AdapterView.OnItemSelectedListener langChangeListener = new android.widget.AdapterView.OnItemSelectedListener() {
+                        @Override
+                        public void onItemSelected(android.widget.AdapterView<?> parent, android.view.View view, int position, long id) {
+                            performLiveTranslation();
+                        }
+                        @Override
+                        public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+                    };
+                    if (mSourceLangSpinner != null) mSourceLangSpinner.setOnItemSelectedListener(langChangeListener);
+                    if (mTargetLangSpinner != null) mTargetLangSpinner.setOnItemSelectedListener(langChangeListener);
+
+                    mTranslationInputTextView = mTranslationStrip.findViewById(R.id.translation_input_buffer);
+
+                    View closeBtn = mTranslationStrip.findViewById(R.id.btn_translation_close);
+                    if (closeBtn != null) closeBtn.setOnClickListener(v -> toggleTranslationMode());
+
+                    View swapBtn = mTranslationStrip.findViewById(R.id.btn_translation_swap);
+                    if (swapBtn != null) swapBtn.setOnClickListener(v -> {
+                        int srcPos = mSourceLangSpinner.getSelectedItemPosition();
+                        int tgtPos = mTargetLangSpinner.getSelectedItemPosition();
+                        mSourceLangSpinner.setSelection(tgtPos);
+                        mTargetLangSpinner.setSelection(srcPos);
+                        performLiveTranslation();
+                    });
+
+                    View translateBtn = mTranslationStrip.findViewById(R.id.btn_translation_translate);
+                    if (translateBtn != null) translateBtn.setOnClickListener(v -> { android.view.inputmethod.InputConnection ic = getCurrentInputConnection(); if (ic != null) ic.finishComposingText(); toggleTranslationMode(); });
+                }
+            }
+            if (mTranslationStrip != null) {
+                mTranslationStrip.setVisibility(View.VISIBLE);
+            }
+            if (mSuggestionStripView != null) {
+                mSuggestionStripView.setVisibility(View.GONE);
+            }
         }
     }
 

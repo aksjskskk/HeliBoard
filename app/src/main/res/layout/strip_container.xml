@@ -15,19 +15,19 @@
         android:id="@+id/suggestion_strip_view"
         android:layoutDirection="ltr"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="@dimen/config_suggestions_strip_height"
         android:gravity="center_vertical"
         style="?attr/suggestionStripViewStyle" />
     <LinearLayout
         android:id="@+id/emoji_tab_strip"
         android:orientation="horizontal"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="@dimen/config_suggestions_strip_height"
         style="?attr/suggestionStripViewStyle" />
     <HorizontalScrollView
         android:id="@+id/clipboard_strip_scroll_view"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="@dimen/config_suggestions_strip_height"
         style="?attr/suggestionStripViewStyle"
         android:scrollbarThumbHorizontal="@color/toolbar_scrollbar" >
         <LinearLayout
@@ -44,7 +44,11 @@
     </HorizontalScrollView>
 
     <!-- Translation Strip UI added -->
-    <include layout="@layout/translation_strip"
-             android:visibility="gone" />
+    <ViewStub
+        android:id="@+id/translation_strip_stub"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:layout="@layout/translation_strip" />
 
 </FrameLayout>
