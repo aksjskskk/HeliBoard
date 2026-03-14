@@ -829,8 +829,8 @@ public class LatinIME extends InputMethodService implements
                     // Parse the JSON response to extract translated text
                     String translatedText = parseGoogleTranslateResponse(response.toString());
 
-                    // Update UI on main thread
-                    runOnUiThread(() -> {
+                    // Update UI on main thread using mHandler instead of runOnUiThread
+                    mHandler.post(() -> {
                         android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
                         if (ic != null && mTranslationModeEnabled) {
                             ic.setComposingText(translatedText, 1);
