@@ -884,19 +884,23 @@ public class LatinIME extends InputMethodService implements
     }
 
     private void handleTranslationInput(int codePoint) {
-        if (!mTranslationFieldFocused) {
+        if (!mTranslationFieldFocused || mTranslationInputTextView == null) {
             return; // Ignore input if the translation field isn't active/focused
         }
+        // Let EditText handle input natively - don't manually process keys
+        // This allows proper cursor movement, selection, and deletion
         if (codePoint == helium314.keyboard.keyboard.internal.keyboard_parser.floris.KeyCode.DELETE) {
-            if (mTranslationInputBuffer.length() > 0) {
-                // Remove last character (handling surrogate pairs correctly)
-                int lastCharIndex = mTranslationInputBuffer.length() - 1;
-                if (Character.isLowSurrogate(mTranslationInputBuffer.charAt(lastCharIndex)) && lastCharIndex > 0 && Character.isHighSurrogate(mTranslationInputBuffer.charAt(lastCharIndex - 1))) {
-                    mTranslationInputBuffer.delete(lastCharIndex - 1, lastCharIndex + 1);
-                } else {
-                    mTranslationInputBuffer.deleteCharAt(lastCharIndex);
-                }
+            // Only handle delete if EditText doesn't have focus (edge case)
+            int selectionStart = mTranslationInputTextView.getSelectionStart();
+            int selectionEnd = mTranslationInputTextView.getSelectionEnd();
+            if (selectionStart > 0 && selectionStart == selectionEnd) {
+                // No selection, delete character before cursor
+                mTranslationInputTextView.getText().delete(selectionStart - 1, selectionStart);
+            } else if (selectionStart != selectionEnd) {
+                // Has selection, delete selected text
+                mTranslationInputTextView.getText().delete(selectionStart, selectionEnd);
             }
+            return;
         } else if (codePoint == helium314.keyboard.latin.common.Constants.CODE_ENTER) {
             // Commit text
             android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
@@ -906,18 +910,20 @@ public class LatinIME extends InputMethodService implements
             toggleTranslationMode();
             return;
         } else if (codePoint >= 32) { // printable characters
-            mTranslationInputBuffer.appendCodePoint(codePoint);
+            // Let EditText handle character insertion natively
+            int selectionStart = mTranslationInputTextView.getSelectionStart();
+            int selectionEnd = mTranslationInputTextView.getSelectionEnd();
+            if (selectionStart >= 0 && selectionEnd >= 0) {
+                if (selectionStart != selectionEnd) {
+                    // Replace selection
+                    mTranslationInputTextView.getText().replace(selectionStart, selectionEnd, String.valueOf((char)codePoint));
+                } else {
+                    // Insert at cursor
+                    mTranslationInputTextView.getText().insert(selectionStart, String.valueOf((char)codePoint));
+                }
+            }
+            return;
         }
-
-        if (mTranslationInputTextView != null) {
-            // Update EditText directly - cursor is handled natively
-            mTranslationInputTextView.setText(mTranslationInputBuffer.toString());
-            // Move cursor to end
-            mTranslationInputTextView.setSelection(mTranslationInputBuffer.length());
-        }
-
-        // Trigger translation
-        performLiveTranslation();
     }
 
     public void toggleTranslationMode() {
@@ -968,16 +974,20 @@ public class LatinIME extends InputMethodService implements
                         
                         // Add text change listener to sync with internal buffer and trigger translation
                         mTranslationInputTextView.addTextChangedListener(new android.text.TextWatcher() {
+                            private boolean isInternalChange = false;
+                            
                             @Override
                             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
                             
                             @Override
                             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                                // Sync the internal buffer with EditText content
-                                mTranslationInputBuffer.setLength(0);
-                                mTranslationInputBuffer.append(s);
-                                // Trigger translation
-                                performLiveTranslation();
+                                if (!isInternalChange) {
+                                    // Sync the internal buffer with EditText content
+                                    mTranslationInputBuffer.setLength(0);
+                                    mTranslationInputBuffer.append(s);
+                                    // Trigger translation
+                                    performLiveTranslation();
+                                }
                             }
                             
                             @Override
