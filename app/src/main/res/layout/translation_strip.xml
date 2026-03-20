@@ -53,7 +53,7 @@
             android:padding="8dp"/>
     </LinearLayout>
 
-    <TextView
+    <EditText
         android:id="@+id/translation_input_buffer"
         android:layout_width="match_parent"
         android:layout_height="@dimen/config_suggestions_strip_height"
@@ -65,6 +65,11 @@
         android:textColor="?android:attr/textColorPrimary"
         android:textSize="18sp"
         android:hint="Type here to translate..."
-        android:singleLine="true" />
+        android:singleLine="true"
+        android:focusable="true"
+        android:focusableInTouchMode="true"
+        android:cursorVisible="true"
+        android:inputType="text"
+        android:imeOptions="actionNone" />
 
 </LinearLayout>

@@ -25,8 +25,10 @@ import android.os.Process;
 import android.util.PrintWriterPrinter;
 import android.util.Printer;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
+import android.graphics.Rect;
 import android.view.inputmethod.CompletionInfo;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InlineSuggestion;
@@ -138,8 +140,8 @@ public class LatinIME extends InputMethodService implements
     private View mTranslationStrip;
     private android.widget.Spinner mSourceLangSpinner;
     private android.widget.Spinner mTargetLangSpinner;
-    private com.google.mlkit.nl.translate.Translator mTranslator;
-    private android.widget.TextView mTranslationInputTextView;
+    // Removed ML Kit translator - now using cloud API
+    private android.widget.EditText mTranslationInputTextView;
     private StringBuilder mTranslationInputBuffer = new StringBuilder();
 
 
@@ -796,57 +798,109 @@ public class LatinIME extends InputMethodService implements
             return;
         }
 
-        String sourceLang = mSourceLangSpinner != null ? (String) mSourceLangSpinner.getSelectedItem() : "en";
-        String targetLang = mTargetLangSpinner != null ? (String) mTargetLangSpinner.getSelectedItem() : "es";
+        String sourceLang = mSourceLangSpinner != null ? (String) mSourceLangSpinner.getSelectedItem() : "auto";
+        String targetLang = mTargetLangSpinner != null ? (String) mTargetLangSpinner.getSelectedItem() : "en";
 
-        if (mTranslator == null || !sourceLang.equals(mLastSourceLang) || !targetLang.equals(mLastTargetLang)) {
-            if (mTranslator != null) {
-                mTranslator.close();
+        // Use cloud-based Google Translate API
+        String encodedText = java.net.URLEncoder.encode(mTranslationInputBuffer.toString(), java.nio.charset.StandardCharsets.UTF_8);
+        String url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=" + sourceLang + "&tl=" + targetLang + "&dt=t&q=" + encodedText;
+
+        // Execute HTTP request in background
+        new Thread(() -> {
+            try {
+                java.net.URL httpUrl = new java.net.URL(url);
+                java.net.HttpURLConnection connection = (java.net.HttpURLConnection) httpUrl.openConnection();
+                connection.setRequestMethod("GET");
+                connection.setConnectTimeout(5000);
+                connection.setReadTimeout(5000);
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0");
+
+                int responseCode = connection.getResponseCode();
+                if (responseCode == java.net.HttpURLConnection.HTTP_OK) {
+                    java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(connection.getInputStream(), java.nio.charset.StandardCharsets.UTF_8));
+                    StringBuilder response = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        response.append(line);
+                    }
+                    reader.close();
+                    connection.disconnect();
+
+                    // Parse the JSON response to extract translated text
+                    String translatedText = parseGoogleTranslateResponse(response.toString());
+
+                    // Update UI on main thread using mHandler instead of runOnUiThread
+                    mHandler.post(() -> {
+                        android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
+                        if (ic != null && mTranslationModeEnabled) {
+                            ic.setComposingText(translatedText, 1);
+                        }
+                    });
+                } else {
+                    android.util.Log.e("LatinIME", "Translation API error: " + responseCode);
+                    connection.disconnect();
+                }
+            } catch (Exception e) {
+                android.util.Log.e("LatinIME", "Translation request failed", e);
             }
-            com.google.mlkit.nl.translate.TranslatorOptions options = new com.google.mlkit.nl.translate.TranslatorOptions.Builder()
-                    .setSourceLanguage(sourceLang)
-                    .setTargetLanguage(targetLang)
-                    .build();
-            mTranslator = com.google.mlkit.nl.translate.Translation.getClient(options);
-            mLastSourceLang = sourceLang;
-            mLastTargetLang = targetLang;
+        }).start();
+    }
+
+    private String parseGoogleTranslateResponse(String jsonResponse) {
+        try {
+            // Simple JSON parsing for Google Translate response format
+            // Response format: [[["translated_text","original_text",...],...],"source_lang",...]
+            int firstQuote = jsonResponse.indexOf('"');
+            if (firstQuote == -1) return mTranslationInputBuffer.toString();
+            
+            int secondQuote = jsonResponse.indexOf('"', firstQuote + 1);
+            if (secondQuote == -1) return mTranslationInputBuffer.toString();
+            
+            // Find the end of the translated text (handle escaped quotes)
+            StringBuilder translatedText = new StringBuilder();
+            int i = firstQuote + 1;
+            while (i < secondQuote) {
+                if (jsonResponse.charAt(i) == '\\' && i + 1 < jsonResponse.length()) {
+                    char next = jsonResponse.charAt(i + 1);
+                    switch (next) {
+                        case 'n': translatedText.append('\n'); break;
+                        case 't': translatedText.append('\t'); break;
+                        case '"': translatedText.append('"'); break;
+                        case '\\': translatedText.append('\\'); break;
+                        default: translatedText.append(next);
+                    }
+                    i += 2;
+                } else {
+                    translatedText.append(jsonResponse.charAt(i));
+                    i++;
+                }
+            }
+            
+            return translatedText.toString();
+        } catch (Exception e) {
+            android.util.Log.e("LatinIME", "Failed to parse translation response", e);
+            return mTranslationInputBuffer.toString();
         }
-
-        com.google.mlkit.common.model.DownloadConditions conditions = new com.google.mlkit.common.model.DownloadConditions.Builder()
-                .build();
-
-        mTranslator.downloadModelIfNeeded(conditions)
-                .addOnSuccessListener(v -> {
-                    mTranslator.translate(mTranslationInputBuffer.toString())
-                            .addOnSuccessListener(translatedText -> {
-                                android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
-                                if (ic != null && mTranslationModeEnabled) {
-                                    ic.setComposingText(translatedText, 1);
-                                }
-                            })
-                            .addOnFailureListener(e -> {
-                                android.util.Log.e("LatinIME", "Translation failed", e);
-                            });
-                })
-                .addOnFailureListener(e -> {
-                    android.util.Log.e("LatinIME", "Model download failed", e);
-                });
     }
 
     private void handleTranslationInput(int codePoint) {
-        if (!mTranslationFieldFocused) {
+        if (!mTranslationFieldFocused || mTranslationInputTextView == null) {
             return; // Ignore input if the translation field isn't active/focused
         }
+        // Let EditText handle input natively - don't manually process keys
+        // This allows proper cursor movement, selection, and deletion
         if (codePoint == helium314.keyboard.keyboard.internal.keyboard_parser.floris.KeyCode.DELETE) {
-            if (mTranslationInputBuffer.length() > 0) {
-                // Remove last character (handling surrogate pairs correctly)
-                int lastCharIndex = mTranslationInputBuffer.length() - 1;
-                if (Character.isLowSurrogate(mTranslationInputBuffer.charAt(lastCharIndex)) && lastCharIndex > 0 && Character.isHighSurrogate(mTranslationInputBuffer.charAt(lastCharIndex - 1))) {
-                    mTranslationInputBuffer.delete(lastCharIndex - 1, lastCharIndex + 1);
-                } else {
-                    mTranslationInputBuffer.deleteCharAt(lastCharIndex);
-                }
+            // Only handle delete if EditText doesn't have focus (edge case)
+            int selectionStart = mTranslationInputTextView.getSelectionStart();
+            int selectionEnd = mTranslationInputTextView.getSelectionEnd();
+            if (selectionStart > 0 && selectionStart == selectionEnd) {
+                // No selection, delete character before cursor
+                mTranslationInputTextView.getText().delete(selectionStart - 1, selectionStart);
+            } else if (selectionStart != selectionEnd) {
+                // Has selection, delete selected text
+                mTranslationInputTextView.getText().delete(selectionStart, selectionEnd);
             }
+            return;
         } else if (codePoint == helium314.keyboard.latin.common.Constants.CODE_ENTER) {
             // Commit text
             android.view.inputmethod.InputConnection ic = getCurrentInputConnection();
@@ -856,31 +910,26 @@ public class LatinIME extends InputMethodService implements
             toggleTranslationMode();
             return;
         } else if (codePoint >= 32) { // printable characters
-            mTranslationInputBuffer.appendCodePoint(codePoint);
-        }
-
-        if (mTranslationInputTextView != null) {
-            if (mTranslationInputBuffer.length() == 0) {
-                mTranslationInputTextView.setText(" |");
-                mTranslationInputTextView.setHint("");
-            } else {
-                // Add fake cursor indicator
-                mTranslationInputTextView.setText(mTranslationInputBuffer.toString() + " |");
+            // Let EditText handle character insertion natively
+            int selectionStart = mTranslationInputTextView.getSelectionStart();
+            int selectionEnd = mTranslationInputTextView.getSelectionEnd();
+            if (selectionStart >= 0 && selectionEnd >= 0) {
+                if (selectionStart != selectionEnd) {
+                    // Replace selection
+                    mTranslationInputTextView.getText().replace(selectionStart, selectionEnd, String.valueOf((char)codePoint));
+                } else {
+                    // Insert at cursor
+                    mTranslationInputTextView.getText().insert(selectionStart, String.valueOf((char)codePoint));
+                }
             }
+            return;
         }
-
-        // Trigger translation
-        performLiveTranslation();
     }
 
     public void toggleTranslationMode() {
         mTranslationModeEnabled = !mTranslationModeEnabled;
         if (!mTranslationModeEnabled) {
             clearTranslationBuffer();
-            if (mTranslator != null) {
-                mTranslator.close();
-                mTranslator = null;
-            }
             if (mTranslationStrip != null) {
                 mTranslationStrip.setVisibility(View.GONE);
             }
@@ -917,15 +966,53 @@ public class LatinIME extends InputMethodService implements
 
                     mTranslationInputTextView = mTranslationStrip.findViewById(R.id.translation_input_buffer);
                     if (mTranslationInputTextView != null) {
+                        // Auto-focus the translation field when translation mode is enabled
+                        mTranslationFieldFocused = true;
+                        mTranslationInputTextView.setBackgroundColor(0x33000000); // Darker to show focus
+                        mTranslationInputTextView.setText("");
+                        mTranslationInputTextView.setHint("Type here to translate...");
+                        
+                        // Add text change listener to sync with internal buffer and trigger translation
+                        mTranslationInputTextView.addTextChangedListener(new android.text.TextWatcher() {
+                            private boolean isInternalChange = false;
+                            
+                            @Override
+                            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                            
+                            @Override
+                            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                                if (!isInternalChange) {
+                                    // Sync the internal buffer with EditText content
+                                    mTranslationInputBuffer.setLength(0);
+                                    mTranslationInputBuffer.append(s);
+                                    // Trigger translation
+                                    performLiveTranslation();
+                                }
+                            }
+                            
+                            @Override
+                            public void afterTextChanged(android.text.Editable s) {}
+                        });
+                        
+                        // Add click listener to focus the translation field when tapped
                         mTranslationInputTextView.setOnClickListener(v -> {
                             mTranslationFieldFocused = true;
-                            mTranslationInputTextView.setBackgroundColor(0x33000000); // Darker to show focus
-                            if (mTranslationInputBuffer.length() == 0) {
-                                mTranslationInputTextView.setText(" |");
-                                mTranslationInputTextView.setHint("");
-                            } else {
-                                mTranslationInputTextView.setText(mTranslationInputBuffer.toString() + " |");
+                            mTranslationInputTextView.setBackgroundColor(0x33000000);
+                        });
+                        
+                        // Add touch listener to detect clicks outside the translation field
+                        mTranslationStrip.setOnTouchListener((view, motionEvent) -> {
+                            if (motionEvent.getAction() == MotionEvent.ACTION_DOWN) {
+                                // Check if touch is outside the translation input TextView
+                                Rect rect = new Rect();
+                                mTranslationInputTextView.getHitRect(rect);
+                                if (!rect.contains((int)motionEvent.getX(), (int)motionEvent.getY())) {
+                                    // Touch is outside, unfocus the translation field
+                                    mTranslationFieldFocused = false;
+                                    mTranslationInputTextView.setBackgroundColor(0x1A000000); // Reset background
+                                }
                             }
+                            return false;
                         });
                     }
 
